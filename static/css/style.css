@@ -1,0 +1,845 @@
+/*
+ * style.css - Custom Styling for India LIMS
+ * Tailwind CSS is loaded via CDN; this file adds Leaflet & custom overrides.
+ */
+
+/* ─── Base Overrides ──────────────────────────────────────────────────────── */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* ─── Leaflet Map Overrides ───────────────────────────────────────────────── */
+#map,
+#add-record-map,
+#view-record-map {
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 1;
+}
+
+/* Ensure Leaflet controls don't conflict with our UI */
+.leaflet-control-container {
+    z-index: 400;
+}
+
+.leaflet-control-zoom {
+    border: none !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+    border-radius: 8px !important;
+    overflow: hidden;
+}
+
+.leaflet-control-zoom a {
+    width: 36px !important;
+    height: 36px !important;
+    line-height: 36px !important;
+    font-size: 18px !important;
+    color: #374151 !important;
+    background: white !important;
+    border-bottom: 1px solid #e5e7eb !important;
+}
+
+.leaflet-control-zoom a:hover {
+    background: #f3f4f6 !important;
+    color: #ea580c !important;
+}
+
+/* ─── Leaflet-Geoman Toolbar Styling ──────────────────────────────────────── */
+.leaflet-pm-toolbar {
+    z-index: 500 !important;
+}
+
+.pm-toolbar {
+    border-radius: 8px !important;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15) !important;
+    border: none !important;
+    overflow: hidden;
+}
+
+.pm-toolbar .button-container .pm-btn {
+    width: 40px !important;
+    height: 40px !important;
+    background: white !important;
+    border: none !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    transition: background 0.15s;
+}
+
+.pm-toolbar .button-container .pm-btn:hover {
+    background: #fff7ed !important;
+}
+
+.pm-toolbar .button-container .pm-btn.active {
+    background: #fed7aa !important;
+    color: #ea580c !important;
+}
+
+.pm-toolbar .button-container:last-child .pm-btn {
+    border-bottom: none !important;
+}
+
+/* ─── Map Popup Styling ───────────────────────────────────────────────────── */
+.leaflet-popup-content-wrapper {
+    border-radius: 10px !important;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12) !important;
+    padding: 0 !important;
+}
+
+.leaflet-popup-content {
+    margin: 0 !important;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 13px;
+    min-width: 220px;
+}
+
+.leaflet-popup-tip {
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08) !important;
+}
+
+/* ─── Parcel Tooltip Styling ──────────────────────────────────────────────── */
+.parcel-tooltip {
+    background: white !important;
+    border: none !important;
+    border-radius: 10px !important;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15) !important;
+    padding: 0 !important;
+    font-family: 'Segoe UI', system-ui, sans-serif !important;
+    font-size: 13px !important;
+    color: #374151 !important;
+    max-width: 300px !important;
+    min-width: 250px !important;
+}
+
+.parcel-tooltip::before {
+    border-top-color: white !important;
+}
+
+.parcel-tooltip .tooltip-content {
+    padding: 14px 16px;
+}
+
+.parcel-tooltip .tooltip-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #1f2937;
+    margin-bottom: 10px;
+    border-bottom: 2px solid #ea580c;
+    padding-bottom: 8px;
+}
+
+.parcel-tooltip .tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    line-height: 1.6;
+}
+
+.parcel-tooltip .tooltip-label {
+    font-weight: 600;
+    color: #6b7280;
+    margin-right: 10px;
+    min-width: 80px;
+}
+
+.parcel-tooltip .tooltip-value {
+    font-weight: 500;
+    color: #1f2937;
+    text-align: right;
+}
+
+.parcel-tooltip .tooltip-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 10px 0;
+}
+
+.parcel-tooltip .tooltip-hint {
+    margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #e5e7eb;
+    font-size: 12px;
+    color: #ea580c;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* ─── Custom Parcel Styling ───────────────────────────────────────────────── */
+.parcel-polygon {
+    stroke: #ea580c;
+    stroke-width: 2.5;
+    fill-opacity: 0.2;
+    stroke-opacity: 0.9;
+}
+
+.parcel-polygon:hover {
+    fill-opacity: 0.35;
+    stroke-width: 3.5;
+}
+
+.parcel-polygon-selected {
+    stroke: #dc2626;
+    stroke-width: 3.5;
+    fill-opacity: 0.35;
+    stroke-opacity: 1;
+}
+
+/* Land use color coding */
+.parcel-agricultural { fill: #22c55e; }
+.parcel-residential { fill: #3b82f6; }
+.parcel-commercial { fill: #f59e0b; }
+.parcel-industrial { fill: #8b5cf6; }
+.parcel-government { fill: #ef4444; }
+.parcel-forest { fill: #065f46; }
+.parcel-wasteland { fill: #9ca3af; }
+
+/* ─── Map Layer Switcher ─────────────────────────────────────────────────── */
+input[type="radio"][name="basemap"],
+input[type="radio"][name="add-basemap"],
+input[type="radio"][name="view-basemap"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+}
+
+input[type="radio"][name="basemap"]:checked,
+input[type="radio"][name="add-basemap"]:checked,
+input[type="radio"][name="view-basemap"]:checked {
+    border-color: #ea580c;
+    border-width: 2px;
+}
+
+input[type="radio"][name="basemap"]:checked::after,
+input[type="radio"][name="add-basemap"]:checked::after,
+input[type="radio"][name="view-basemap"]:checked::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ea580c;
+}
+
+input[type="radio"][name="basemap"]:hover,
+input[type="radio"][name="add-basemap"]:hover,
+input[type="radio"][name="view-basemap"]:hover {
+    border-color: #ea580c;
+}
+
+/* ─── Public Viewer Map Layer Switcher (green theme) ─────────────────────── */
+.viewer-radio {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
+    background: white;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.viewer-radio:checked {
+    border-color: #16a34a;
+    border-width: 2px;
+}
+
+.viewer-radio:checked::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #16a34a;
+}
+
+.viewer-radio:hover {
+    border-color: #16a34a;
+}
+
+/* ─── Public Viewer Filter Selects (green theme) ────────────────────────── */
+#filter-state:focus,
+#filter-district:focus,
+#filter-village:focus,
+#filter-land-use:focus {
+    --tw-ring-color: #16a34a;
+    border-color: #16a34a;
+}
+
+/* ─── Main Tab Navigation (Left Sidebar) ─────────────────────────────────── */
+.main-tab-btn {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    color: #6b7280;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.875rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    position: relative;
+    border-left: 4px solid transparent;
+    border-radius: 0.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.main-tab-btn:hover {
+    color: #374151;
+    background: #f9fafb;
+}
+
+.main-tab-btn.active {
+    color: #ea580c;
+    background: #fff7ed;
+    border-left-color: #ea580c;
+    font-weight: 600;
+}
+
+.main-tab-btn svg {
+    flex-shrink: 0;
+}
+
+.main-tab-btn span {
+    flex: 1;
+    text-align: left;
+}
+
+/* Logout button styling */
+#btn-logout {
+    margin-top: 0.25rem;
+    border-radius: 0.5rem;
+}
+
+#btn-logout:hover {
+    background: #fef2f2;
+    border-left-color: #dc2626;
+    color: #dc2626;
+}
+
+.main-tab-panel {
+    animation: fadeIn 0.25s ease-in;
+}
+
+/* ─── Sidebar Styling (Legacy Support) ────────────────────────────────────── */
+.sidebar-tab.active {
+    color: #ea580c;
+    border-bottom-color: #ea580c;
+}
+
+.sidebar-tab {
+    transition: color 0.15s, border-color 0.15s;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+}
+
+.sidebar-tab:hover {
+    color: #374151;
+}
+
+/* ─── Form Sub-Tabs ───────────────────────────────────────────────────────── */
+.form-tab-btn {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: #6b7280;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-bottom: 2px solid transparent;
+}
+
+.form-tab-btn:hover {
+    color: #374151;
+    background: #f3f4f6;
+}
+
+.form-tab-btn.active {
+    color: #ea580c;
+    background: #fff7ed;
+    border-bottom-color: #ea580c;
+}
+
+.form-tab-panel {
+    animation: fadeIn 0.2s ease-in;
+}
+
+/* ─── Draw Settings Panel ─────────────────────────────────────────────────── */
+.draw-settings-btn {
+    border: 0;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.5rem 0.75rem;
+    transition: background 0.15s;
+}
+
+#map-autofill-status {
+    min-height: 1rem;
+}
+
+/* ─── Dashboard KPI Cards ─────────────────────────────────────────────────── */
+.dashboard-kpi-card {
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    border-radius: 0.5rem;
+    padding: 0.55rem 0.7rem;
+}
+
+.dashboard-kpi-label {
+    font-size: 0.68rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.dashboard-kpi-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1f2937;
+    margin-top: 0.15rem;
+}
+
+.dashboard-row {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    padding: 0.5rem 0.65rem;
+}
+
+.dashboard-row-bar {
+    height: 0.4rem;
+    background: #ffedd5;
+    border-radius: 9999px;
+    overflow: hidden;
+    margin-top: 0.35rem;
+}
+
+.dashboard-row-bar-fill {
+    height: 100%;
+    background: #ea580c;
+}
+
+/* ─── Dashboard Content Improvements ──────────────────────────────────────── */
+#main-tab-dashboard .bg-white.rounded-lg.shadow-md {
+    transition: box-shadow 0.2s ease;
+}
+
+#main-tab-dashboard .bg-white.rounded-lg.shadow-md:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#dashboard-land-use > div,
+#dashboard-districts > div {
+    transition: transform 0.15s ease;
+}
+
+#dashboard-land-use > div:hover,
+#dashboard-districts > div:hover {
+    transform: translateX(2px);
+}
+
+/* ─── Records List Styling ────────────────────────────────────────────────── */
+.records-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0.65rem 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.records-view-tabs {
+    display: inline-flex;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    margin-bottom: 0;
+    width: auto;
+    min-width: 180px;
+    flex-shrink: 0;
+}
+
+.records-view-tab {
+    border: 0;
+    background: #ffffff;
+    color: #4b5563;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.5rem 0.875rem;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    flex: 1;
+    white-space: nowrap;
+    min-width: 90px;
+}
+
+.records-view-tab:hover {
+    background: #f3f4f6;
+}
+
+.records-view-tab.active {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.record-table-row {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    background: #ffffff;
+    padding: 0.55rem 0.65rem;
+    margin-bottom: 0.5rem;
+    transition: all 0.15s;
+    cursor: pointer;
+}
+
+.record-table-row:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.record-table-row.active {
+    border-color: #fdba74;
+    background: #fff7ed;
+}
+
+.view-record-btn-table {
+    cursor: pointer;
+    transition: all 0.15s;
+    font-weight: 500;
+}
+
+.view-record-btn-table:hover {
+    background: #ea580c !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(234, 88, 12, 0.3);
+}
+
+/* ─── Record Card in Sidebar ──────────────────────────────────────────────── */
+.record-card {
+    padding: 12px 16px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-left: 3px solid transparent;
+    border-radius: 0.5rem;
+    margin-bottom: 0.5rem;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+}
+
+.record-card:hover {
+    background: #f9fafb;
+    border-left-color: #ea580c;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.record-card.active {
+    background: #fff7ed;
+    border-left-color: #ea580c;
+    box-shadow: 0 2px 8px rgba(234, 88, 12, 0.1);
+}
+
+.view-record-btn {
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.view-record-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(234, 88, 12, 0.3);
+}
+
+.record-card .land-use-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 9999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-agricultural { background: #dcfce7; color: #166534; }
+.badge-residential { background: #dbeafe; color: #1e40af; }
+.badge-commercial { background: #fef3c7; color: #92400e; }
+.badge-industrial { background: #ede9fe; color: #5b21b6; }
+.badge-government { background: #fee2e2; color: #991b1b; }
+.badge-forest { background: #d1fae5; color: #065f46; }
+.badge-wasteland { background: #f3f4f6; color: #4b5563; }
+
+/* ─── Form Field Group Styling ────────────────────────────────────────────── */
+fieldset {
+    border-color: #e5e7eb;
+}
+
+fieldset legend {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #6b7280;
+    padding: 0 0.5rem;
+}
+
+/* ─── Toast Notification ──────────────────────────────────────────────────── */
+#toast {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10000;
+    transform: translateY(20px);
+    opacity: 0;
+    transition: all 0.3s ease;
+    max-width: 400px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+#toast.show {
+    display: block !important;
+    transform: translateY(0);
+    opacity: 1;
+}
+
+#toast .toast-inner {
+    padding: 12px 20px;
+    border-radius: 8px;
+    color: white;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+#toast.success .toast-inner { background: #166534; }
+#toast.error .toast-inner { background: #991b1b; }
+#toast.info .toast-inner { background: #1e40af; }
+#toast.warning .toast-inner { background: #92400e; }
+
+/* ─── Form Input Improvements ─────────────────────────────────────────────── */
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="date"],
+input[type="password"],
+select,
+textarea {
+    transition: all 0.2s ease;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="email"]:focus,
+input[type="date"]:focus,
+input[type="password"]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+}
+
+input[readonly] {
+    cursor: not-allowed;
+}
+
+/* ─── Login Page Styling ──────────────────────────────────────────────────── */
+#captcha-question {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+    user-select: none;
+}
+
+/* ─── Scrollbar Styling ───────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #c4c4c4;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #a0a0a0;
+}
+
+/* ─── Loading Spinner ─────────────────────────────────────────────────────── */
+.spinner {
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* ─── Print Styles (for Property Cards) ───────────────────────────────────── */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #print-area, #print-area * {
+        visibility: visible;
+    }
+    #print-area {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+}
+
+/* ─── Responsive Adjustments ──────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+    /* Adjust dashboard grid for tablets */
+    #main-tab-dashboard .grid {
+        gap: 1rem;
+    }
+    
+    /* Reduce padding in records toolbar */
+    .bg-white.border-b.px-4.py-3 {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    /* Make sidebar slightly smaller */
+    .w-56 {
+        width: 48px;
+    }
+    
+    .main-tab-btn span,
+    #btn-logout span {
+        display: none;
+    }
+
+    .main-tab-btn {
+        padding: 0.75rem;
+        justify-content: center;
+    }
+    
+    #btn-logout {
+        padding: 0.75rem;
+        justify-content: center;
+    }
+    
+    /* Adjust search input width */
+    #search-input {
+        width: 12rem !important;
+    }
+    
+    /* Hide department column on tablets */
+    #users-table-body td:nth-child(4),
+    #users-table-body th:nth-child(4) {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .main-tab-btn span,
+    #btn-logout span {
+        display: none;
+    }
+
+    .main-tab-btn {
+        padding: 0.75rem;
+        justify-content: center;
+    }
+    
+    #btn-logout {
+        padding: 0.75rem;
+        justify-content: center;
+    }
+    
+    /* Stack dashboard cards on mobile */
+    #main-tab-dashboard .grid {
+        grid-template-columns: 1fr !important;
+    }
+    
+    /* Hide some filters on mobile */
+    .records-header .records-view-tabs {
+        display: none;
+    }
+    
+    /* Hide contact and department columns on mobile */
+    #users-table-body td:nth-child(3),
+    #users-table-body th:nth-child(3),
+    #users-table-body td:nth-child(4),
+    #users-table-body th:nth-child(4) {
+        display: none;
+    }
+}
+
+@media (max-width: 767px) {
+    /* Ensure map takes full viewport on mobile */
+    #map {
+        height: calc(100vh - 60px) !important;
+    }
+
+    /* Parcel panel on mobile - full width with top border */
+    #parcel-panel {
+        max-width: 100vw !important;
+        border-radius: 0 !important;
+    }
+
+    /* Make filter sidebar touch-friendly */
+    #filter-sidebar {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Larger touch targets for filter inputs */
+    #filter-state,
+    #filter-district,
+    #filter-village,
+    #filter-land-use,
+    #search-input {
+        min-height: 44px;
+        font-size: 16px !important; /* Prevents iOS zoom on focus */
+    }
+
+    #btn-apply-filters,
+    #btn-clear-filters {
+        min-height: 44px;
+    }
+
+    /* Ensure overlay is clickable */
+    #filter-overlay {
+        z-index: 35;
+    }
+
+    .main-tab-btn span {
+        display: inline !important;
+    }
+}
