@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>India LIMS - Public Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
+</head>
+<body class="bg-gray-100 h-[100dvh] flex flex-col overflow-hidden">
+
+    <!-- Top Navigation Bar -->
+    <nav class="bg-gradient-to-r from-green-600 to-green-700 shadow-lg z-50 flex-shrink-0">
+        <div class="flex items-center justify-between px-4 sm:px-6 py-3">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Mobile: Filter Toggle Button -->
+                <button id="btn-toggle-filters" class="md:hidden text-white hover:bg-white/20 transition p-2 rounded-lg">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+                <div class="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-lg flex items-center justify-center shadow-md">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-white">India LIMS</h1>
+                    <p class="text-[10px] sm:text-xs text-green-100 hidden sm:block">Public Land Records Viewer</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 sm:gap-4">
+                <div id="real-time-clock" class="text-xs sm:text-sm font-medium text-white/90 bg-black/20 px-2 sm:px-3 py-1.5 rounded-lg flex flex-col justify-center items-center">
+                    <span id="rtc-time" class="block font-bold">--:--:--</span>
+                    <span id="rtc-date" class="text-[9px] sm:text-[10px] uppercase tracking-wider hidden sm:block">--/--/----</span>
+                </div>
+                <div class="hidden sm:flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2 rounded-lg">
+                    <div class="w-2 h-2 bg-green-400 rounded-full"></div>
+                    <span class="text-sm font-medium text-white">Viewer</span>
+                    <span class="text-xs bg-white/30 text-white px-2 py-0.5 rounded-full font-semibold">READ-ONLY</span>
+                </div>
+                <button id="btn-help-support" class="flex text-white/90 hover:text-white hover:bg-white/20 transition px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium border border-white/30" title="Help & Support">
+                    <svg class="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="hidden sm:inline">Help</span>
+                </button>
+                <button id="btn-logout" class="text-white/80 hover:text-white hover:bg-white/20 transition p-2 rounded-lg" title="Logout">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Layout: Left Sidebar (Filters) + Map -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- Mobile Overlay Backdrop -->
+        <div id="filter-overlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
+
+        <!-- Left Sidebar: Filters -->
+        <div id="filter-sidebar" class="fixed md:relative inset-y-0 left-0 w-80 bg-white shadow-lg z-40 flex flex-col overflow-y-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
+            <div class="p-4 space-y-4">
+                <div class="flex items-center justify-between pb-3 border-b border-gray-200">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                        </svg>
+                        <h2 class="text-lg font-bold text-gray-800">Filter Parcels</h2>
+                    </div>
+                    <!-- Mobile Close Button -->
+                    <button id="btn-close-filters" class="md:hidden text-gray-400 hover:text-gray-600 transition p-1">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <!-- Search -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Search</label>
+                    <div class="relative">
+                        <input type="text" id="search-input" placeholder="Khasra / ULPIN / Village..."
+                            class="w-full pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                        <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    </div>
+                </div>
+
+                <!-- State -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">State</label>
+                    <select id="filter-state" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                        <option value="">All States</option>
+                    </select>
+                </div>
+
+                <!-- District -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">District</label>
+                    <select id="filter-district" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                        <option value="">All Districts</option>
+                    </select>
+                </div>
+
+                <!-- Village -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Village / Ward</label>
+                    <select id="filter-village" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                        <option value="">All Villages</option>
+                    </select>
+                </div>
+
+                <!-- Land Use -->
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Land Use Type</label>
+                    <select id="filter-land-use" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-green-500 focus:border-green-500">
+                        <option value="">All Types</option>
+                        <option value="Agricultural">Agricultural</option>
+                        <option value="Residential">Residential</option>
+                        <option value="Commercial">Commercial</option>
+                        <option value="Industrial">Industrial</option>
+                        <option value="Government">Government</option>
+                        <option value="Forest">Forest</option>
+                        <option value="Wasteland">Wasteland</option>
+                    </select>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="space-y-2 pt-2">
+                    <button id="btn-apply-filters" class="w-full px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg transition text-sm font-semibold flex items-center justify-center gap-2 shadow-sm">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        Apply Filters
+                    </button>
+                    <button id="btn-clear-filters" class="w-full px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition text-sm font-semibold flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        Clear All
+                    </button>
+                </div>
+
+                <!-- Results Counter -->
+                <div id="filter-results" class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                    <p class="text-sm text-gray-600">Showing</p>
+                    <p class="text-2xl font-bold text-green-700" id="results-count">0</p>
+                    <p class="text-sm text-gray-600">parcels</p>
+                </div>
+
+                <!-- Legend -->
+                <div class="pt-3 border-t border-gray-200">
+                    <h3 class="text-sm font-semibold text-gray-700 mb-2">Map Legend</h3>
+                    <div class="space-y-1.5 text-xs">
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded" style="background: #22c55e;"></div>
+                            <span class="text-gray-600">Agricultural</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded" style="background: #3b82f6;"></div>
+                            <span class="text-gray-600">Residential</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded" style="background: #f59e0b;"></div>
+                            <span class="text-gray-600">Commercial</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded" style="background: #8b5cf6;"></div>
+                            <span class="text-gray-600">Industrial</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded" style="background: #ef4444;"></div>
+                            <span class="text-gray-600">Government</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded" style="background: #065f46;"></div>
+                            <span class="text-gray-600">Forest</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-4 h-4 rounded" style="background: #9ca3af;"></div>
+                            <span class="text-gray-600">Wasteland</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom: Version -->
+            <div class="mt-auto border-t p-3 bg-gray-50">
+                <p class="text-xs text-gray-500 text-center">India LIMS v1.0</p>
+            </div>
+        </div>
+
+        <!-- Main Content: Map + Details Side Panel -->
+        <div class="flex-1 flex overflow-hidden relative">
+            <!-- Map Container -->
+            <div id="map-wrapper" class="flex-1 relative" style="min-height: 0;">
+                <div id="map" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;"></div>
+
+                <!-- Layer Switcher (top-right) - Compact on mobile -->
+                <div class="absolute top-2 right-2 sm:top-3 sm:right-3 z-[999] bg-white rounded-lg shadow-lg p-2 sm:p-3 max-sm:scale-90 max-sm:origin-top-right">
+                    <p class="text-[10px] sm:text-xs font-semibold text-gray-500 mb-1 sm:mb-2 px-1">BASEMAP</p>
+                    <div class="space-y-1 sm:space-y-2">
+                        <label class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs sm:text-sm">
+                            <input type="radio" name="basemap" value="osm" checked class="text-green-600 focus:ring-green-500">
+                            <span>Street</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs sm:text-sm">
+                            <input type="radio" name="basemap" value="google" class="text-green-600 focus:ring-green-500">
+                            <span>Google</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs sm:text-sm">
+                            <input type="radio" name="basemap" value="esri" class="text-green-600 focus:ring-green-500">
+                            <span>Satellite</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Coordinates Display (bottom-left) - Smaller on mobile -->
+                <div class="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 z-[998] bg-white/90 backdrop-blur rounded-lg shadow px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs text-gray-600 font-mono">
+                    <span id="cursor-coords">Lat: --, Lng: --</span>
+                </div>
+
+                <!-- Loading Indicator -->
+                <div id="map-loading" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[2000] bg-white rounded-lg shadow-xl px-6 py-4 hidden">
+                    <div class="flex items-center gap-3">
+                        <div class="spinner w-5 h-5 border-2 border-gray-200 rounded-full border-t-green-600 animate-spin"></div>
+                        <p class="text-sm text-gray-600">Loading parcels...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Details Side Panel (slides in from right) -->
+            <div id="parcel-panel" class="w-full md:w-[420px] bg-white shadow-2xl border-l border-gray-200 flex flex-col transition-transform duration-300 ease-in-out transform translate-x-full absolute right-0 top-0 bottom-0 z-[1000]">
+                <!-- Panel Header -->
+                <div class="bg-gradient-to-r from-green-600 to-green-700 text-white px-5 py-4 flex items-center justify-between flex-shrink-0">
+                    <h3 class="font-bold text-base" id="parcel-title">Property Details</h3>
+                    <button id="parcel-close" class="text-green-200 hover:text-white transition p-1">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <!-- Panel Body (Scrollable) -->
+                <div id="parcel-body" class="flex-1 overflow-y-auto p-5 space-y-4">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Panel Footer (Sticky above mobile nav bar) -->
+                <div id="parcel-footer" class="p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-gray-50 border-t border-gray-200 flex-shrink-0 sticky bottom-0 left-0 w-full z-[1100]" style="box-shadow: 0 -2px 12px 0 rgba(0,0,0,0.07);">
+                    <button onclick="printCard(document.getElementById('parcel-ulpin').textContent)" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-lg shadow transition flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Download Property Card (PDF)
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+    
+    <!-- Help & Support Modal -->
+    <div id="help-support-modal" class="fixed inset-0 z-[9999] hidden bg-black/50 flex flex-col items-center justify-center backdrop-blur-sm px-3 sm:px-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col transform transition-all max-h-[90vh]">
+            <!-- Modal Header -->
+            <div class="bg-green-600 text-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+                <h3 class="text-base sm:text-lg font-bold flex items-center gap-2">
+                    <svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                    <span class="hidden sm:inline">Help & Support</span>
+                    <span class="sm:hidden">Help</span>
+                </h3>
+                <button type="button" id="close-help-modal" class="text-white/80 hover:text-white transition">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+            </div>
+            <!-- Modal Body -->
+            <div class="p-4 sm:p-6 overflow-y-auto flex-1">
+                <form id="help-support-form" class="space-y-3 sm:space-y-4">
+                    <div>
+                        <label for="help-email" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">Email Address <span class="text-red-500">*</span></label>
+                        <input type="email" id="help-email" required class="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm" placeholder="your@email.com">
+                    </div>
+                    <div>
+                        <label for="help-type" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">Issue Type <span class="text-red-500">*</span></label>
+                        <select id="help-type" required class="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm">
+                            <option value="Incorrect Record Information">Incorrect Record Information</option>
+                            <option value="Map/Boundary Issue">Map/Boundary Issue</option>
+                            <option value="Technical Bug">Technical Bug</option>
+                            <option value="General Feedback">General Feedback</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="help-message" class="block text-xs sm:text-sm font-semibold text-gray-700 mb-1">Details/Feedback <span class="text-red-500">*</span></label>
+                        <textarea id="help-message" rows="4" required class="w-full px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none resize-none text-sm" placeholder="Please describe the issue or provide feedback in detail..."></textarea>
+                    </div>
+                    <div id="help-message-alert" class="hidden text-sm p-3 rounded-lg"></div>
+                </form>
+            </div>
+            <!-- Modal Footer -->
+            <div class="bg-gray-50 px-4 sm:px-6 py-3 sm:py-4 flex justify-end gap-2 sm:gap-3 border-t border-gray-200">
+                <button type="button" id="cancel-help-modal" class="px-3 sm:px-4 py-2 bg-white border border-gray-300 rounded-lg text-gray-700 text-sm sm:text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
+                <button type="submit" form="help-support-form" class="px-3 sm:px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm sm:text-sm rounded-lg font-medium transition shadow-sm flex items-center gap-2">Submit</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <script src="{{ url_for('static', filename='js/api.js') }}"></script>
+    <script>
+        // Modal Help & Support Handlers
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnHelp = document.getElementById('btn-help-support');
+            const modalHelp = document.getElementById('help-support-modal');
+            const closeHelp = document.getElementById('close-help-modal');
+            const cancelHelp = document.getElementById('cancel-help-modal');
+            const formHelp = document.getElementById('help-support-form');
+            const alertMsg = document.getElementById('help-message-alert');
+
+            function openHelpModal() {
+                modalHelp.classList.remove('hidden');
+                alertMsg.classList.add('hidden');
+                formHelp.reset();
+            }
+
+            function closeHelpModal() {
+                modalHelp.classList.add('hidden');
+            }
+
+            btnHelp.addEventListener('click', openHelpModal);
+            closeHelp.addEventListener('click', closeHelpModal);
+            cancelHelp.addEventListener('click', closeHelpModal);
+            modalHelp.addEventListener('click', (e) => {
+                if (e.target === modalHelp) closeHelpModal();
+            });
+
+            formHelp.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = document.getElementById('help-email').value;
+                const type = document.getElementById('help-type').value;
+                const message = document.getElementById('help-message').value;
+                
+                try {
+                    const res = await fetch('/api/feedback', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email, type, message })
+                    });
+                    const data = await res.json();
+                    
+                    alertMsg.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+                    if (res.ok) {
+                        alertMsg.classList.add('bg-green-100', 'text-green-700');
+                        alertMsg.textContent = data.message || "Feedback submitted successfully!";
+                        setTimeout(closeHelpModal, 2000);
+                    } else {
+                        alertMsg.classList.add('bg-red-100', 'text-red-700');
+                        alertMsg.textContent = data.error || "Failed to submit feedback.";
+                    }
+                } catch (error) {
+                    alertMsg.classList.remove('hidden');
+                    alertMsg.classList.add('bg-red-100', 'text-red-700');
+                    alertMsg.textContent = "Network error. Please try again.";
+                }
+            });
+        });
+
+        // Mobile Filter Drawer Handlers
+        let closeFilterDrawerGlobal = null;
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            const btnToggle = document.getElementById('btn-toggle-filters');
+            const btnClose = document.getElementById('btn-close-filters');
+            const sidebar = document.getElementById('filter-sidebar');
+            const overlay = document.getElementById('filter-overlay');
+
+            function openFilterDrawer() {
+                sidebar.classList.remove('-translate-x-full');
+                sidebar.classList.add('translate-x-0');
+                overlay.classList.remove('hidden');
+            }
+
+            function closeFilterDrawer() {
+                sidebar.classList.add('-translate-x-full');
+                sidebar.classList.remove('translate-x-0');
+                overlay.classList.add('hidden');
+            }
+            
+            closeFilterDrawerGlobal = closeFilterDrawer;
+
+            if (btnToggle) {
+                btnToggle.addEventListener('click', openFilterDrawer);
+            }
+            if (btnClose) {
+                btnClose.addEventListener('click', closeFilterDrawer);
+            }
+            if (overlay) {
+                overlay.addEventListener('click', closeFilterDrawer);
+            }
+
+            // Close on Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
+                    closeFilterDrawer();
+                }
+            });
+        });
+
+        let map = null;
+        let baseLayers = {};
+        let currentBaseLayer = 'osm';
+        let parcelLayers = [];
+        let allRecords = [];
+        let filteredRecords = [];
+        let mapInitialized = false;
+
+        function initMap() {
+            if (mapInitialized) return;
+
+            try {
+                // Region lock: Expanded India bounding box with generous margins
+                const indiaBounds = L.latLngBounds(
+                    L.latLng(4.0, 60.0),   // Southwest (extended into ocean)
+                    L.latLng(40.0, 105.0)  // Northeast (extended into China/Myanmar)
+                );
+
+                map = L.map('map', {
+                    center: [23.5, 77.5],
+                    zoom: 7,
+                    minZoom: 4,
+                    maxZoom: 18,
+                    maxBounds: indiaBounds,
+                    maxBoundsViscosity: 1.0,
+                    zoomControl: true
+                });
+
+                baseLayers.osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 19
+                });
+
+                baseLayers.google = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+                    attribution: '&copy; Google Maps',
+                    maxZoom: 20
+                });
+
+                baseLayers.esri = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                    attribution: '&copy; Esri',
+                    maxZoom: 18
+                });
+
+                baseLayers.osm.addTo(map);
+
+                // Add India boundary mask
+                addIndiaMask(map);
+
+                // Basemap switcher
+                document.querySelectorAll('input[name="basemap"]').forEach(radio => {
+                    radio.addEventListener('change', function() {
+                        if (baseLayers[this.value] && this.value !== currentBaseLayer) {
+                            map.removeLayer(baseLayers[currentBaseLayer]);
+                            baseLayers[this.value].addTo(map);
+                            currentBaseLayer = this.value;
+                        }
+                    });
+                });
+
+                // Coordinate display
+                map.on('mousemove', function(e) {
+                    const coordsEl = document.getElementById('cursor-coords');
+                    if (coordsEl) {
+                        coordsEl.textContent = `Lat: ${e.latlng.lat.toFixed(5)}, Lng: ${e.latlng.lng.toFixed(5)}`;
+                    }
+                });
+
+                mapInitialized = true;
+                console.log('Map initialized with region lock');
+            } catch (error) {
+                console.error('Map initialization failed:', error);
+            }
+        }
+
+        // Add India boundary mask to dim everything outside India
+        async function addIndiaMask(mapInstance) {
+            try {
+                const response = await fetch('/api/boundary');
+                if (!response.ok) {
+                    console.warn('Failed to load India boundary');
+                    return;
+                }
+
+                const indiaGeoJSON = await response.json();
+
+                if (!indiaGeoJSON || !indiaGeoJSON.features || indiaGeoJSON.features.length === 0) {
+                    console.warn('India boundary GeoJSON has no features');
+                    return;
+                }
+
+                // Create a mask: large rectangle with India cut out as a hole
+                const worldBounds = [
+                    [-180, -90],
+                    [180, -90],
+                    [180, 90],
+                    [-180, 90],
+                    [-180, -90]
+                ];
+
+                let maskCoordinates = [worldBounds];
+                const geometry = indiaGeoJSON.features[0].geometry;
+
+                if (geometry.type === 'MultiPolygon') {
+                    geometry.coordinates.forEach(polygon => {
+                        maskCoordinates.push(polygon[0]);
+                    });
+                } else if (geometry.type === 'Polygon') {
+                    maskCoordinates.push(geometry.coordinates[0]);
+                }
+
+                const maskGeoJSON = {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: maskCoordinates
+                    }
+                };
+
+                // Add the mask layer
+                const maskLayer = L.geoJSON(maskGeoJSON, {
+                    style: function() {
+                        return {
+                            color: '#1f2937',
+                            weight: 2,
+                            fillColor: '#1f2937',
+                            fillOpacity: 0.7
+                        };
+                    },
+                    interactive: false,
+                    isMask: true
+                });
+
+                maskLayer.addTo(mapInstance);
+
+                // Add India border outline for clarity
+                const indiaBorder = L.geoJSON(indiaGeoJSON, {
+                    style: function() {
+                        return {
+                            color: '#16a34a',  // Green border for public viewer
+                            weight: 3,
+                            fillColor: 'transparent',
+                            fillOpacity: 0,
+                            opacity: 0.9
+                        };
+                    },
+                    interactive: false,
+                    isMask: true
+                });
+
+                indiaBorder.addTo(mapInstance);
+                console.log('India boundary mask loaded');
+            } catch (err) {
+                console.warn('Failed to load India boundary mask:', err);
+            }
+        }
+
+        function addRecordsToMap(records) {
+            if (!map || !mapInitialized) return;
+
+            // Clear existing layers
+            parcelLayers.forEach(layer => map.removeLayer(layer));
+            parcelLayers = [];
+
+            const landUseColors = {
+                Agricultural: '#22c55e',
+                Residential: '#3b82f6',
+                Commercial: '#f59e0b',
+                Industrial: '#8b5cf6',
+                Government: '#ef4444',
+                Forest: '#065f46',
+                Wasteland: '#9ca3af'
+            };
+
+            if (records.length === 0) {
+                showToast('No parcels match your filters', 'warning');
+                return;
+            }
+
+            records.forEach(rec => {
+                if (!rec.geometry) return;
+
+                const landUse = (rec.attributes && rec.attributes.land_use) || 'Unknown';
+                const color = landUseColors[landUse] || '#6b7280';
+
+                const geoJsonLayer = L.geoJSON(rec.geometry, {
+                    style: function() {
+                        return {
+                            color: color,
+                            fillColor: color,
+                            fillOpacity: 0.25,
+                            weight: 2.5,
+                            opacity: 0.9
+                        };
+                    },
+                    onEachFeature: function(_feature, layer) {
+                        layer.on('click', function() {
+                            showParcelDetails(rec);
+                            map.fitBounds(L.geoJSON(rec.geometry).getBounds(), { padding: [50, 50], maxZoom: 16 });
+                        });
+
+                        layer.on('mouseover', function() {
+                            this.setStyle({ fillOpacity: 0.45, weight: 3.5 });
+                        });
+                        layer.on('mouseout', function() {
+                            this.setStyle({ fillOpacity: 0.25, weight: 2.5 });
+                        });
+
+                        const attrs = rec.attributes || {};
+                        layer.bindTooltip(
+                            `<div class="font-sans text-sm">
+                                <div class="font-bold mb-1">${rec.khasra_no || 'N/A'}</div>
+                                <div class="text-xs text-gray-600">ULPIN: ${rec.ulpin || 'N/A'}</div>
+                                <div class="text-xs text-gray-600">Type: ${landUse}</div>
+                                <div class="text-xs text-gray-600">Area: ${attrs.area_ha || '?'} Ha</div>
+                            </div>`,
+                            { sticky: true, direction: 'top', offset: [0, -10] }
+                        );
+                    }
+                });
+
+                geoJsonLayer.addTo(map);
+                parcelLayers.push(geoJsonLayer);
+            });
+
+            // Auto-zoom to fit all filtered parcels
+            if (parcelLayers.length > 0) {
+                const group = L.featureGroup(parcelLayers);
+                map.fitBounds(group.getBounds(), { padding: [50, 50], maxZoom: 15 });
+            }
+        }
+
+        function showParcelDetails(record) {
+            const panel = document.getElementById('parcel-panel');
+            const title = document.getElementById('parcel-title');
+            const body = document.getElementById('parcel-body');
+
+            const loc = record.location || {};
+            const attrs = record.attributes || {};
+            const owner = record.owner || {};
+            const value = (parseFloat(attrs.area_ha) || 0) * (parseFloat(attrs.circle_rate_inr) || 0);
+
+            title.textContent = `Khasra: ${record.khasra_no || 'N/A'}`;
+            body.innerHTML = `
+                <!-- Hidden ULPIN for print button -->
+                <p id="parcel-ulpin" class="hidden">${record.ulpin || ''}</p>
+                
+                <!-- Basic Info Grid -->
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        Parcel Information
+                    </h4>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div><p class="text-xs text-gray-500">ULPIN</p><p class="font-mono font-semibold">${record.ulpin || 'N/A'}</p></div>
+                        <div><p class="text-xs text-gray-500">Khata No.</p><p class="font-semibold">${record.khata_no || 'N/A'}</p></div>
+                        <div><p class="text-xs text-gray-500">Area</p><p class="font-semibold">${attrs.area_ha || 'N/A'} Ha</p></div>
+                        <div><p class="text-xs text-gray-500">Land Use</p><p class="font-semibold">${attrs.land_use || 'N/A'}</p></div>
+                    </div>
+                </div>
+
+                <!-- Location -->
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                        Location
+                    </h4>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex justify-between"><span class="text-gray-500">State</span><span class="font-medium">${loc.state || 'N/A'}</span></div>
+                        <div class="flex justify-between"><span class="text-gray-500">District</span><span class="font-medium">${loc.district || 'N/A'}</span></div>
+                        <div class="flex justify-between"><span class="text-gray-500">Village</span><span class="font-medium">${loc.village || 'N/A'}</span></div>
+                    </div>
+                </div>
+
+                <!-- Valuation -->
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                        Valuation
+                    </h4>
+                    <p class="text-xs text-gray-500 mb-1">Estimated Value (Area × Circle Rate)</p>
+                    <p class="text-2xl font-bold text-green-700">Rs. ${Math.round(value).toLocaleString('en-IN')}</p>
+                </div>
+
+                <!-- Owner -->
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <h4 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                        Owner (Partial View)
+                    </h4>
+                    <div class="grid grid-cols-2 gap-3 text-sm">
+                        <div><p class="text-xs text-gray-500">Name</p><p class="font-semibold">${maskName(owner.name || 'N/A')}</p></div>
+                        <div><p class="text-xs text-gray-500">Share</p><p class="font-semibold">${owner.share_pct || 'N/A'}%</p></div>
+                    </div>
+                    <p class="text-xs text-gray-400 mt-2 italic">Full details available to authorized officials only</p>
+                </div>
+            `;
+
+            // Show panel with slide-in animation
+            panel.classList.remove('translate-x-full');
+            panel.classList.add('translate-x-0');
+            
+            // Resize map after panel animation completes (300ms)
+            if (map && mapInitialized) {
+                setTimeout(() => map.invalidateSize(), 320);
+            }
+        }
+
+        function maskName(name) {
+            if (!name || name === 'N/A') return 'N/A';
+            const parts = name.split(' ');
+            if (parts.length <= 1) return name;
+            return parts[0] + ' ' + parts.slice(1).map(p => p[0] + '.').join(' ');
+        }
+
+        async function printCard(ulpin) {
+            if (!ulpin) {
+                showToast('No ULPIN available', 'error');
+                return;
+            }
+
+            showToast('Generating PDF property card with map...', 'info');
+
+            let mapImageBase64 = null;
+            const mapDiv = document.getElementById('map');
+            
+            // Capture map image if available
+            if (mapDiv && typeof window.htmlToImage !== 'undefined' && mapInitialized) {
+                try {
+                    // Temporarily hide the details panel for cleaner screenshot
+                    const panel = document.getElementById('parcel-panel');
+                    const panelVisible = panel.classList.contains('translate-x-0');
+                    if (panelVisible) {
+                        panel.classList.remove('translate-x-0');
+                        panel.classList.add('translate-x-full');
+                    }
+
+                    // Wait for panel to hide
+                    await new Promise(resolve => setTimeout(resolve, 100));
+
+                    mapImageBase64 = await window.htmlToImage.toPng(mapDiv, {
+                        pixelRatio: 1,
+                        backgroundColor: '#ffffff'
+                    });
+
+                    // Show panel again if it was visible
+                    if (panelVisible) {
+                        panel.classList.remove('translate-x-full');
+                        panel.classList.add('translate-x-0');
+                    }
+                } catch (err) {
+                    console.warn("Failed to capture map image:", err);
+                }
+            }
+
+            try {
+                const res = await fetch(`/api/print-card/${ulpin}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ map_image: mapImageBase64 })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    throw new Error(err.error || 'Failed to generate');
+                }
+
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Property_Card_${ulpin}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                showToast('PDF downloaded successfully!', 'success');
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        // Load records
+        async function loadRecords() {
+            try {
+                const loadingEl = document.getElementById('map-loading');
+                loadingEl.classList.remove('hidden');
+
+                allRecords = await fetchRecords();
+                buildFilterOptions(allRecords);
+                applyFilters();
+
+                loadingEl.classList.add('hidden');
+            } catch (err) {
+                console.error('Failed to load records:', err);
+                showToast('Failed to load records.', 'error');
+                document.getElementById('map-loading').classList.add('hidden');
+            }
+        }
+
+        function buildFilterOptions(records) {
+            const states = [...new Set(records.map(r => (r.location || {}).state || '').filter(Boolean))].sort();
+            const districts = [...new Set(records.map(r => (r.location || {}).district || '').filter(Boolean))].sort();
+            const villages = [...new Set(records.map(r => (r.location || {}).village || '').filter(Boolean))].sort();
+
+            populateSelect('filter-state', states, 'All States');
+            populateSelect('filter-district', districts, 'All Districts');
+            populateSelect('filter-village', villages, 'All Villages');
+        }
+
+        function populateSelect(id, values, placeholder) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerHTML = `<option value="">${placeholder}</option>`;
+            values.forEach(v => {
+                const opt = document.createElement('option');
+                opt.value = v;
+                opt.textContent = v;
+                el.appendChild(opt);
+            });
+        }
+
+        function applyFilters() {
+            const stateVal = document.getElementById('filter-state').value;
+            const districtVal = document.getElementById('filter-district').value;
+            const villageVal = document.getElementById('filter-village').value;
+            const landUseVal = document.getElementById('filter-land-use').value;
+            const searchVal = document.getElementById('search-input').value.trim();
+
+            filteredRecords = allRecords.filter(rec => {
+                const loc = rec.location || {};
+                const attrs = rec.attributes || {};
+                if (stateVal && loc.state !== stateVal) return false;
+                if (districtVal && loc.district !== districtVal) return false;
+                if (villageVal && loc.village !== villageVal) return false;
+                if (landUseVal && attrs.land_use !== landUseVal) return false;
+                if (searchVal) {
+                    const searchText = [rec.khasra_no, rec.ulpin, loc.village, loc.district].join(' ').toLowerCase();
+                    if (!searchText.includes(searchVal.toLowerCase())) return false;
+                }
+                return true;
+            });
+
+            // Update counter
+            document.getElementById('results-count').textContent = filteredRecords.length;
+
+            // Update map
+            if (mapInitialized) {
+                addRecordsToMap(filteredRecords);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('btn-apply-filters').addEventListener('click', function() {
+            applyFilters();
+            if (window.innerWidth < 768 && closeFilterDrawerGlobal) {
+                closeFilterDrawerGlobal();
+            }
+        });
+
+        document.getElementById('btn-clear-filters').addEventListener('click', function() {
+            document.getElementById('filter-state').value = '';
+            document.getElementById('filter-district').value = '';
+            document.getElementById('filter-village').value = '';
+            document.getElementById('filter-land-use').value = '';
+            document.getElementById('search-input').value = '';
+            applyFilters();
+        });
+
+        // Enter key on search
+        document.getElementById('search-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') applyFilters();
+        });
+
+        // Close parcel panel
+        document.getElementById('parcel-close').addEventListener('click', function() {
+            const panel = document.getElementById('parcel-panel');
+            panel.classList.remove('translate-x-0');
+            panel.classList.add('translate-x-full');
+            
+            // Resize map after panel animation completes (300ms)
+            if (map && mapInitialized) {
+                setTimeout(() => map.invalidateSize(), 320);
+            }
+        });
+
+        // Logout
+        document.getElementById('btn-logout').addEventListener('click', function() {
+            logout().then(() => { window.location.href = '/login'; }).catch(() => { window.location.href = '/login'; });
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // ─── Prevent back button from exiting to login page ─────────────────────
+            history.pushState({ page: 'viewer' }, '', window.location.href);
+            
+            window.addEventListener('popstate', function(e) {
+                if (e.state && e.state.page === 'viewer') {
+                    history.pushState({ page: 'viewer' }, '', window.location.href);
+                }
+            });
+
+            // Initialize map immediately
+            initMap();
+            // Load records
+            loadRecords();
+        });
+    </script>
+</body>
+</html>
