@@ -4,6 +4,7 @@ Common functions used across the application.
 """
 
 import os
+import sys
 
 
 def resource_path(relative_path):
@@ -22,27 +23,3 @@ def safe_divide(numerator, denominator, default=0):
         return numerator / denominator if denominator else default
     except (TypeError, ZeroDivisionError):
         return default
-
-
-def format_inr(value):
-    """Format a number as Indian Rupee string with commas (en-IN locale style)."""
-    try:
-        return f"₹{round(value):,}"
-    except (TypeError, ValueError):
-        return "₹0"
-
-
-def generate_mutation_ref(khasra_no, district):
-    """Generate a unique mutation reference number.
-    Format: MUT-YYYY-DISTCODE-XXXXX
-    """
-    import random
-    from datetime import datetime
-    
-    year = datetime.now().year
-    district_code = (district or "UNK")[:3].upper()
-    seq = random.randint(10000, 99999)
-    return f"MUT-{year}-{district_code}-{seq}"
-
-
-import sys

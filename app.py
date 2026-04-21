@@ -13,7 +13,7 @@ import random
 import string
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
 from flask import (
@@ -23,19 +23,17 @@ from flask import (
 from werkzeug.security import generate_password_hash, check_password_hash
 from pymongo import MongoClient, ReplaceOne
 import certifi
+from itsdangerous import URLSafeTimedSerializer
 
 from config import (
-    SECRET_KEY, DEBUG, HOST, PORT, MONGO_URI,
-    DATA_DIR, RECORDS_FILE, USERS_FILE, FEEDBACK_FILE,
-    LAND_USE_OPTIONS, LAND_USE_COLORS, MUTATION_TYPES
+    SECRET_KEY, DEBUG, HOST, PORT, MONGO_URI
 )
 from utils import resource_path
 
 
-# ─── App Configuration ──────────────────────────────────────────────────────────
+# --- App Configuration ---
 app = Flask(__name__)
 app.secret_key = SECRET_KEY
-app.config["SESSION_TYPE"] = "filesystem"
 
 @app.route('/ping', methods=['GET'])
 def ping():
@@ -51,20 +49,28 @@ def add_header(response):
     return response
 
 # Session persistence: keep users signed in for 30 days
-from datetime import timedelta
 app.permanent_session_lifetime = timedelta(days=30)
 
 # Database Setup (MongoDB)
-try:
-    mongo_client = MongoClient(MONGO_URI, tlsCAFile=certifi.where(), serverSelectionTimeoutMS=5000)
-    db = mongo_client.get_database("indialims")
-    users_collection = db.users
-    records_collection = db.records
-    feedback_collection = db.feedback
-    print("Successfully connected to MongoDB Cluster.")
-except Exception as e:
-    print(f"MongoDB connection error: {e}")
-    # Application will likely fail if DB isn't reached, but we catch to print.
+# Skip connecting during pytest runs to avoid noisy prints and external dependencies
+if not os.environ.get('PYTEST_CURRENT_TEST'):
+    try:
+        mongo_client = MongoClient(MONGO_URI, tlsCAFile=certifi.where(), serverSelectionTimeoutMS=5000)
+        db = mongo_client.get_database("indialims")
+        users_collection = db.users
+        records_collection = db.records
+        feedback_collection = db.feedback
+        print("Successfully connected to MongoDB Cluster.")
+    except Exception as e:
+        print(f"MongoDB connection error: {e}")
+        # Application will likely fail if DB isn't reached, but we catch to print.
+else:
+    # During tests we provide fallback in-memory placeholders for collections
+    mongo_client = None
+    db = None
+    users_collection = None
+    records_collection = None
+    feedback_collection = None
 
 # Override data paths for PyInstaller
 DATA_DIR = resource_path("data")
@@ -73,20 +79,8 @@ USERS_FILE = os.path.join(DATA_DIR, "users.json")
 FEEDBACK_FILE = os.path.join(DATA_DIR, "feedback.json")
 
 
-# ─── Data Access Helpers ────────────────────────────────────────────────────────
-def load_json(filepath):
-    """Fallback: Load local JSON file if migrating."""
-    try:
-        with open(filepath, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return []
 
-
-def save_json(filepath, data):
-    """Fallback: Save local JSON file."""
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2, ensure_ascii=False)
+# --- Data Access Helpers ---
 
 
 def load_users():
@@ -134,7 +128,7 @@ def save_feedback(feedback_data):
     feedback_collection.delete_many({"id": {"$nin": [f["id"] for f in feedback_data]}})
 
 
-# ─── Shared Helper Functions ────────────────────────────────────────────────────
+# --- Shared Helper Functions ---
 def _mask_owner_for_viewer(record):
     """Mask sensitive owner details for viewer access. Returns modified record."""
     if "owner" not in record:
@@ -142,14 +136,38 @@ def _mask_owner_for_viewer(record):
     
     record = record.copy()  # Don't mutate original
     record["owner"] = record["owner"].copy()
-    record["owner"]["aadhaar_mask"] = "XXXX-XXXX-XXXX"
+    
+    # Actually remove the sensitive fields from the payload
+    record["owner"].pop("aadhaar", None)
+    record["owner"].pop("phone", None)
     
     name = record["owner"].get("name", "")
     parts = name.split()
     if len(parts) > 1:
         record["owner"]["name"] = parts[0] + " " + parts[1][0] + "."
     
+    # Strip base64 documents for viewers
+    record["owner"].pop("proof_doc_b64", None)
+    for mut in record.get("mutation_history", []):
+        mut.pop("proof_doc_b64", None)
+        
     return record
+
+
+def _strip_b64_from_list(records):
+    """Remove large base64 strings from list views to save bandwidth."""
+    clean_records = []
+    for r in records:
+        r_copy = r.copy()
+        if "owner" in r_copy:
+            r_copy["owner"] = r_copy["owner"].copy()
+            r_copy["owner"].pop("proof_doc_b64", None)
+        if "mutation_history" in r_copy:
+            r_copy["mutation_history"] = [m.copy() for m in r_copy["mutation_history"]]
+            for m in r_copy["mutation_history"]:
+                m.pop("proof_doc_b64", None)
+        clean_records.append(r_copy)
+    return clean_records
 
 
 def _apply_filters_to_records(records, params):
@@ -200,7 +218,7 @@ def _apply_filters_to_records(records, params):
     return filtered
 
 
-# ─── Auth Decorators ────────────────────────────────────────────────────────────
+# --- Auth Decorators ---
 def admin_required(f):
     """Decorator to restrict route to authenticated admin users only."""
     @wraps(f)
@@ -221,18 +239,19 @@ def viewer_or_admin_required(f):
     return decorated_function
 
 
-# ─── Captcha Generation ─────────────────────────────────────────────────────────
+
+# --- Captcha Generation ---
 def generate_captcha():
     """Generate a random text CAPTCHA (lower and upper case letters)."""
     chars = string.ascii_letters
     captcha_text = ''.join(random.choice(chars) for _ in range(6))
-    
-    session["captcha_answer"] = captcha_text
-    session["captcha_question"] = captcha_text
-    return captcha_text
 
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    token = serializer.dumps(captcha_text, salt='captcha-salt')
 
-# ─── Page Routes ─────────────────────────────────────────────────────────────────
+    return captcha_text, token
+
+# --- Page Routes ---
 @app.route("/")
 def index():
     """Landing page: redirect to login."""
@@ -247,8 +266,8 @@ def login_page():
             return redirect(url_for("admin_dashboard"))
         elif session["role"] == "viewer":
             return redirect(url_for("viewer_page"))
-    captcha_question = generate_captcha()
-    return render_template("login.html", captcha_question=captcha_question)
+    captcha_question, captcha_token = generate_captcha()
+    return render_template("login.html", captcha_question=captcha_question, captcha_token=captcha_token)
 
 
 @app.route("/admin")
@@ -278,12 +297,12 @@ def get_india_boundary():
     except FileNotFoundError:
         return jsonify({"error": "Boundary data not found."}), 404
         
-# ─── Auth API Endpoints ─────────────────────────────────────────────────────────
+# --- Auth API Endpoints ---
 @app.route("/api/captcha", methods=["GET"])
 def get_captcha():
     """Generate and return a new math CAPTCHA question."""
-    question = generate_captcha()
-    return jsonify({"question": question})
+    question, token = generate_captcha()
+    return jsonify({"question": question, "token": token})
 
 
 @app.route("/api/verify-captcha", methods=["POST"])
@@ -291,7 +310,14 @@ def verify_captcha():
     """Verify CAPTCHA answer and grant viewer access."""
     data = request.get_json() or {}
     user_answer = str(data.get("answer", "")).strip()
-    expected = session.get("captcha_answer", "")
+    token = str(data.get("token", "")).strip()
+
+    serializer = URLSafeTimedSerializer(app.secret_key)
+    try:
+        expected = serializer.loads(token, salt='captcha-salt', max_age=300) # 5 minutes
+    except Exception:
+        new_question, new_token = generate_captcha()
+        return jsonify({"success": False, "message": "CAPTCHA expired or invalid. Please try again.", "new_question": new_question, "new_token": new_token}), 400
 
     if user_answer == expected:
         session.permanent = True  # Enable persistent session
@@ -300,8 +326,8 @@ def verify_captcha():
         return jsonify({"success": True, "redirect": "/viewer"})
     else:
         # Generate a new captcha on failure
-        new_question = generate_captcha()
-        return jsonify({"success": False, "message": "Incorrect answer. Please try again.", "new_question": new_question}), 400
+        new_question, new_token = generate_captcha()
+        return jsonify({"success": False, "message": "Incorrect answer. Please try again.", "new_question": new_question, "new_token": new_token}), 400
 
 
 @app.route("/api/login", methods=["POST"])
@@ -386,12 +412,31 @@ def submit_feedback():
     return jsonify({"success": True, "message": "Feedback submitted successfully."})
 
 
-# ─── Records API Endpoints ──────────────────────────────────────────────────────
+@app.route("/api/feedback/<feedback_id>", methods=["DELETE"])
+@admin_required
+def delete_feedback(feedback_id):
+    """Admin-only endpoint to delete a feedback/report entry."""
+    feedback_data = load_feedback()
+    original_len = len(feedback_data)
+    
+    feedback_data = [f for f in feedback_data if f.get("id") != feedback_id]
+    
+    if len(feedback_data) == original_len:
+        return jsonify({"error": "Feedback entry not found."}), 404
+        
+    save_feedback(feedback_data)
+    return jsonify({"success": True, "message": "Feedback deleted successfully."})
+
+
+# --- Records API Endpoints ---
 @app.route("/api/records", methods=["GET"])
 @viewer_or_admin_required
 def get_records():
     """Fetch all land records. Available to both viewers and admins."""
     records = load_records()
+
+    # Strip base64 for list view
+    records = _strip_b64_from_list(records)
 
     # If viewer, mask owner details partially
     if session.get("role") == "viewer":
@@ -498,7 +543,8 @@ def create_record():
         "owner": {
             "name": data["owner_name"],
             "share_pct": data.get("share_pct", 100),
-            "aadhaar_mask": data.get("aadhaar_mask", "XXXX-XXXX-XXXX")
+            "aadhaar_mask": data.get("aadhaar_mask", "XXXX-XXXX-XXXX"),
+            "proof_doc_b64": data.get("owner_proof_doc_b64")
         },
         "mutation_history": []
     }
@@ -529,7 +575,8 @@ def update_record(record_id):
             "previous_share_pct": old_owner.get("share_pct", 0),
             "mutation_date": data.get("mutation_date", datetime.now().strftime("%Y-%m-%d")),
             "mutation_type": data.get("mutation_type", "Sale Deed"),
-            "mutation_ref": data.get("mutation_ref", f"MUT-{datetime.now().strftime('%Y')}-{record.get('location', {}).get('district', 'UNK')[:3].upper()}-{random.randint(10000, 99999)}")
+            "mutation_ref": data.get("mutation_ref", f"MUT-{datetime.now().strftime('%Y')}-{record.get('location', {}).get('district', 'UNK')[:3].upper()}-{random.randint(10000, 99999)}"),
+            "proof_doc_b64": data.get("mutation_proof_doc_b64")
         }
 
         # Archive old owner
@@ -543,6 +590,21 @@ def update_record(record_id):
             "share_pct": data.get("new_share_pct", 100),
             "aadhaar_mask": data.get("new_aadhaar_mask", "XXXX-XXXX-XXXX")
         }
+
+        # Also allow location, geometry, and basic field updates during mutation
+        if "location" in data:
+            record["location"] = data["location"]
+        if "khasra_no" in data:
+            record["khasra_no"] = data["khasra_no"]
+        if "khata_no" in data:
+            record["khata_no"] = data["khata_no"]
+        if "geometry" in data:
+            from gis_processor import validate_polygon, calculate_area
+            validation = validate_polygon(data["geometry"])
+            if validation["valid"]:
+                record["geometry"] = data["geometry"]
+                area_result = calculate_area(data["geometry"])
+                record["attributes"]["area_ha"] = area_result.get("area_ha", record["attributes"].get("area_ha", 0))
     else:
         # Regular field updates
         updatable_fields = {
@@ -592,7 +654,7 @@ def delete_record(record_id):
     return jsonify({"success": True, "message": f"Record {record_id} deleted successfully."})
 
 
-# ─── GIS Processing Endpoints ───────────────────────────────────────────────────
+# --- GIS Processing Endpoints ---
 @app.route("/api/calculate-area", methods=["POST"])
 @admin_required
 def api_calculate_area():
@@ -690,7 +752,7 @@ def location_from_coordinates():
         return jsonify({"error": f"Reverse geocoding failed: {str(exc)}"}), 502
 
 
-# ─── Document Generation Endpoints ──────────────────────────────────────────────
+# --- Document Generation Endpoints ---
 @app.route("/api/print-card/<ulpin>", methods=["GET", "POST"])
 @viewer_or_admin_required
 def print_property_card(ulpin):
@@ -760,7 +822,7 @@ def export_village_ledger():
         return jsonify({"error": f"Excel generation error: {str(e)}"}), 500
 
 
-# ─── Server-Side Filtering & Analytics (Python-heavy) ────────────────────────
+# --- Server-Side Filtering & Analytics ---
 
 @app.route("/api/records/filter", methods=["GET"])
 @viewer_or_admin_required
@@ -777,6 +839,7 @@ def filter_records():
     }
     
     filtered = _apply_filters_to_records(records, params)
+    filtered = _strip_b64_from_list(filtered)
     return jsonify(filtered)
 
 
@@ -922,7 +985,7 @@ def app_config():
     })
 
 
-# ─── User Management API Endpoints ────────────────────────────────────────────
+# --- User Management API Endpoints ---
 
 @app.route("/api/profile", methods=["GET"])
 @viewer_or_admin_required
@@ -1100,7 +1163,7 @@ def delete_user(user_id):
     return jsonify({"success": True, "message": f"User '{user.get('username')}' deleted."})
 
 
-# ─── Utility Functions ──────────────────────────────────────────────────────────
+# --- Utility Functions ---
 def _generate_ulpin():
     """Generate a 14-digit ULPIN (Unique Land Parcel Identification Number)."""
     return str(random.randint(10000000000000, 99999999999999))
@@ -1114,7 +1177,7 @@ def _update_nested(record, parent_key, child_key, value):
     return value
 
 
-# ─── Main Entry Point ──────────────────────────────────────────────────────────
+# --- Main Entry Point ---
 if __name__ == "__main__":
     # Redirect stdout and stderr safely for --windowed mode
     log_path = os.path.join(os.environ.get('APPDATA', os.path.dirname(os.path.abspath(__file__))), "IndiaLIMS.log")
@@ -1137,7 +1200,7 @@ if __name__ == "__main__":
     if not MONGO_URI:
         try:
             import ctypes
-            ctypes.windll.user32.MessageBoxW(0, "MongoDB Connection String (MONGO_URI) is missing.\n\nPlease ensure the '.env' file is in the exact same folder as this executable.", "Configuration Error", 0x10)
+            ctypes.windll.user32.MessageBoxW(0, "MongoDB Connection String (MONGO_URI) is missing.\n\nPlease check your configuration.", "Configuration Error", 0x10)
         except Exception:
             pass
         sys.exit(1)
@@ -1151,7 +1214,7 @@ if __name__ == "__main__":
                 "password_hash": generate_password_hash("password123"),
                 "role": "SuperAdmin",
                 "full_name": "System Administrator",
-                "email": "admin@indialims.gov.in",
+                "email": "admin@indialims.edu",
                 "phone": "+91-0000000000",
                 "designation": "System Administrator",
                 "department": "Land Records",
@@ -1180,20 +1243,37 @@ if __name__ == "__main__":
         import webview
         import threading
         import time
+        import socket
         from werkzeug.serving import make_server
 
+        def get_free_port(start_port):
+            """Find an available port if the default is taken."""
+            for port in range(start_port, 65535):
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                    try:
+                        s.bind((HOST, port))
+                        return port
+                    except OSError:
+                        continue
+            return start_port
+
+        actual_port = get_free_port(PORT)
+
         def start_server():
-            app.run(host=HOST, port=PORT, debug=False, use_reloader=False)
+            app.run(host=HOST, port=actual_port, debug=False, use_reloader=False)
 
         flask_thread = threading.Thread(target=start_server, daemon=True)
         flask_thread.start()
         print("Waiting for Flask server to start...")
         time.sleep(2)
 
+        # Windows browsers cannot navigate to 0.0.0.0 directly
+        display_host = "127.0.0.1" if HOST == "0.0.0.0" else HOST
+
         webview.settings['ALLOW_DOWNLOADS'] = True
         window = webview.create_window(
             title="India LIMS - Land Information Management System",
-            url=f"http://{HOST}:{PORT}/login",
+            url=f"http://{display_host}:{actual_port}/login",
             width=1400,
             height=900,
             min_size=(1024, 700),

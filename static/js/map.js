@@ -19,12 +19,68 @@ let selectedRecord = null;
 let reverseGeocodeTimer = null;
 let lastGeocodeKey = '';
 let lastAutoLocation = { state: '', district: '', village: '' };
+let lastGpsDetectedLocation = { state: '', district: '', village: '' };
 let allRecordsCache = [];
 let filteredRecordsCache = [];
 let recordsViewMode = 'cards';
 
 const DEFAULT_SNAP_DISTANCE = 20;
 let locationCatalog = {};
+
+function showConfirmModal(message, onConfirm) {
+    const overlay = document.createElement('div');
+    overlay.className = 'fixed inset-0 bg-black bg-opacity-50 z-[9999] flex items-center justify-center p-4';
+    overlay.style.backdropFilter = 'blur(2px)';
+    
+    const modal = document.createElement('div');
+    modal.className = 'bg-white rounded-lg shadow-xl max-w-sm w-full overflow-hidden fade-in';
+    
+    const content = document.createElement('div');
+    content.className = 'p-6';
+    
+    const iconContainer = document.createElement('div');
+    iconContainer.className = 'mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4';
+    iconContainer.innerHTML = '<svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+    
+    const textContainer = document.createElement('div');
+    textContainer.className = 'text-center';
+    
+    const title = document.createElement('h3');
+    title.className = 'text-lg leading-6 font-medium text-gray-900 mb-2';
+    title.textContent = 'Confirm Action';
+    
+    const messageEl = document.createElement('p');
+    messageEl.className = 'text-sm text-gray-500 whitespace-pre-line';
+    messageEl.textContent = message;
+    
+    textContainer.appendChild(title);
+    textContainer.appendChild(messageEl);
+    content.appendChild(iconContainer);
+    content.appendChild(textContainer);
+    
+    const buttonsContainer = document.createElement('div');
+    buttonsContainer.className = 'bg-gray-50 px-4 py-3 sm:px-6 flex flex-row-reverse gap-2';
+    
+    const confirmBtn = document.createElement('button');
+    confirmBtn.className = 'w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:w-auto sm:text-sm transition-colors cursor-pointer';
+    confirmBtn.textContent = 'Confirm';
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.className = 'w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:w-auto sm:text-sm transition-colors cursor-pointer';
+    cancelBtn.textContent = 'Cancel';
+    
+    buttonsContainer.appendChild(confirmBtn);
+    buttonsContainer.appendChild(cancelBtn);
+    modal.appendChild(content);
+    modal.appendChild(buttonsContainer);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+    
+    const close = () => document.body.removeChild(overlay);
+    confirmBtn.addEventListener('click', () => { close(); if (onConfirm) onConfirm(); });
+    cancelBtn.addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+}
 
 function sortedValues(values) {
     return [...new Set(values)].sort((a, b) => a.localeCompare(b));
@@ -181,85 +237,101 @@ function renderKpiCards(records) {
     mutationEl.textContent = String(totalMutations);
 }
 
+function buildDonutChart(slices, colors) {
+    // slices: [{label, value, extra}]
+    const total = slices.reduce((s, x) => s + x.value, 0);
+    if (total === 0) return '<p style="color:#9ca3af;font-size:12px;">No data</p>';
+    const R = 40, CX = 50, CY = 50, stroke = 18;
+    let cumAngle = -90;
+    const arcs = slices.map((s, i) => {
+        const pct = s.value / total;
+        const angle = pct * 360;
+        const r1 = (cumAngle * Math.PI) / 180;
+        const r2 = ((cumAngle + angle) * Math.PI) / 180;
+        const x1 = CX + R * Math.cos(r1), y1 = CY + R * Math.sin(r1);
+        const x2 = CX + R * Math.cos(r2), y2 = CY + R * Math.sin(r2);
+        const large = angle > 180 ? 1 : 0;
+        const d = `M ${x1} ${y1} A ${R} ${R} 0 ${large} 1 ${x2} ${y2}`;
+        cumAngle += angle;
+        return `<path d="${d}" fill="none" stroke="${colors[i % colors.length]}" stroke-width="${stroke}" stroke-linecap="butt"/>`;
+    }).join('');
+    return `
+        <div style="display:flex;align-items:center;gap:16px;">
+            <svg viewBox="0 0 100 100" style="width:90px;height:90px;flex-shrink:0;">
+                <circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#f3f4f6" stroke-width="${stroke}"/>
+                ${arcs}
+                <text x="${CX}" y="${CY}" text-anchor="middle" dominant-baseline="central" style="font-size:11px;font-weight:700;fill:#374151;">${total}</text>
+                <text x="${CX}" y="${CY+12}" text-anchor="middle" dominant-baseline="central" style="font-size:7px;fill:#9ca3af;">parcels</text>
+            </svg>
+            <div style="flex:1;min-width:0;">
+                ${slices.map((s, i) => `
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                        <div style="width:10px;height:10px;border-radius:2px;background:${colors[i % colors.length]};flex-shrink:0;"></div>
+                        <span style="font-size:11px;color:#374151;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px;" title="${escapeHtml(s.label)}">${escapeHtml(s.label)}</span>
+                        <span style="margin-left:auto;font-size:11px;font-weight:700;color:#111827;">${s.value}</span>
+                        <span style="font-size:10px;color:#9ca3af;">(${(s.value/total*100).toFixed(0)}%)</span>
+                    </div>`).join('')}
+            </div>
+        </div>`;
+}
+
+function buildRankedList(items, colors) {
+    // items: [{label, value, sublabel}]
+    const max = Math.max(...items.map(x => x.value), 1);
+    return items.map((item, i) => {
+        const pct = Math.max((item.value / max) * 100, 4);
+        const color = colors[i % colors.length];
+        return `
+            <div style="margin-bottom:10px;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;">
+                    <span style="font-size:11px;font-weight:600;color:#374151;">${escapeHtml(item.label)}</span>
+                    <span style="font-size:11px;font-weight:700;color:${color};white-space:nowrap;margin-left:8px;">${item.sublabel}</span>
+                </div>
+                <div style="background:#f3f4f6;border-radius:99px;height:6px;">
+                    <div style="background:${color};width:${pct}%;height:100%;border-radius:99px;transition:width 0.5s ease;"></div>
+                </div>
+            </div>`;
+    }).join('');
+}
+
 function renderLandUseDistribution(records) {
     const target = document.getElementById('dashboard-land-use');
     if (!target) return;
-
-    if (!records.length) {
-        target.innerHTML = '<div class="dashboard-row text-xs text-gray-500">No records for selected filters.</div>';
-        return;
-    }
-
+    if (!records.length) { target.innerHTML = '<p style="color:#9ca3af;font-size:12px;">No records yet.</p>'; return; }
     const metrics = {};
     records.forEach(rec => {
-        const landUse = (rec.attributes && rec.attributes.land_use) || 'Unknown';
-        if (!metrics[landUse]) {
-            metrics[landUse] = { count: 0, area: 0 };
-        }
-        metrics[landUse].count += 1;
-        metrics[landUse].area += asNumber(rec.attributes && rec.attributes.area_ha);
+        const lu = (rec.attributes && rec.attributes.land_use) || 'Unknown';
+        if (!metrics[lu]) metrics[lu] = { count: 0, area: 0 };
+        metrics[lu].count++;
+        metrics[lu].area += asNumber(rec.attributes && rec.attributes.area_ha);
     });
-
-    const maxCount = Math.max(...Object.values(metrics).map(item => item.count));
-    const rows = Object.entries(metrics)
-        .sort((a, b) => b[1].count - a[1].count)
-        .map(([landUse, values]) => {
-            const width = maxCount > 0 ? (values.count / maxCount) * 100 : 0;
-            return `
-                <div class="dashboard-row">
-                    <div class="flex items-center justify-between text-xs">
-                        <span class="font-semibold text-gray-700">${escapeHtml(landUse)}</span>
-                        <span class="text-gray-500">${values.count} parcels | ${values.area.toFixed(2)} Ha</span>
-                    </div>
-                    <div class="dashboard-row-bar">
-                        <div class="dashboard-row-bar-fill" style="width:${width}%"></div>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-    target.innerHTML = rows;
+    const COLORS = ['#f97316','#3b82f6','#22c55e','#a855f7','#ec4899','#14b8a6','#f59e0b','#ef4444'];
+    const slices = Object.entries(metrics).sort((a,b)=>b[1].count-a[1].count)
+        .map(([label, v]) => ({ label, value: v.count, extra: v.area.toFixed(1)+' Ha' }));
+    target.innerHTML = buildDonutChart(slices, COLORS);
 }
 
 function renderDistrictOverview(records) {
     const target = document.getElementById('dashboard-districts');
     if (!target) return;
-
-    if (!records.length) {
-        target.innerHTML = '<div class="dashboard-row text-xs text-gray-500">No district data available.</div>';
-        return;
-    }
-
+    if (!records.length) { target.innerHTML = '<p style="color:#9ca3af;font-size:12px;">No district data.</p>'; return; }
     const districtMap = {};
     records.forEach(rec => {
-        const district = (rec.location && rec.location.district) || 'Unknown';
-        if (!districtMap[district]) {
-            districtMap[district] = { count: 0, area: 0, value: 0 };
-        }
+        const d = (rec.location && rec.location.district) || 'Unknown';
+        if (!districtMap[d]) districtMap[d] = { count: 0, area: 0, value: 0 };
         const area = asNumber(rec.attributes && rec.attributes.area_ha);
-        const rate = asNumber(rec.attributes && rec.attributes.circle_rate_inr);
-
-        districtMap[district].count += 1;
-        districtMap[district].area += area;
-        districtMap[district].value += area * rate;
+        districtMap[d].count++;
+        districtMap[d].area += area;
+        districtMap[d].value += area * asNumber(rec.attributes && rec.attributes.circle_rate_inr);
     });
-
-    const rows = Object.entries(districtMap)
-        .sort((a, b) => b[1].value - a[1].value)
-        .slice(0, 6)
-        .map(([district, values]) => {
-            return `
-                <div class="dashboard-row text-xs">
-                    <div class="flex items-center justify-between">
-                        <span class="font-semibold text-gray-700">${escapeHtml(district)}</span>
-                        <span class="text-gray-500">${values.count} parcels</span>
-                    </div>
-                    <div class="mt-1 text-gray-500">Area: ${values.area.toFixed(2)} Ha | Value: Rs. ${formatInr(values.value)}</div>
-                </div>
-            `;
-        }).join('');
-
-    target.innerHTML = rows;
+    const COLORS = ['#6366f1','#f97316','#10b981','#f59e0b','#f43f5e','#a855f7'];
+    const items = Object.entries(districtMap).sort((a,b)=>b[1].count-a[1].count).slice(0,6)
+        .map(([label, v]) => ({
+            label,
+            value: v.count,
+            sublabel: `${v.count} parcels · ${v.area.toFixed(1)} Ha`
+        }));
+    target.innerHTML = buildRankedList(items, COLORS);
 }
 
 function renderTopValueParcel(records) {
@@ -410,48 +482,25 @@ function renderKpiCardsFromServer(kpis) {
 function renderLandUseDistributionFromServer(stats) {
     const target = document.getElementById('dashboard-land-use');
     if (!target) return;
-    
     const entries = Object.entries(stats || {});
-    if (!entries.length) {
-        target.innerHTML = '<div class="dashboard-row text-xs text-gray-500">No records for selected filters.</div>';
-        return;
-    }
-    
-    const maxCount = Math.max(...entries.map(([_, s]) => s.count));
-    target.innerHTML = entries.sort((a, b) => b[1].count - a[1].count).map(([lu, s]) => {
-        const width = maxCount > 0 ? (s.count / maxCount) * 100 : 0;
-        return `
-            <div class="dashboard-row">
-                <div class="flex items-center justify-between text-xs">
-                    <span class="font-semibold text-gray-700">${escapeHtml(lu)}</span>
-                    <span class="text-gray-500">${s.count} parcels | ${s.area.toFixed(2)} Ha</span>
-                </div>
-                <div class="dashboard-row-bar">
-                    <div class="dashboard-row-bar-fill" style="width:${width}%"></div>
-                </div>
-            </div>
-        `;
-    }).join('');
+    if (!entries.length) { target.innerHTML = '<p style="color:#9ca3af;font-size:12px;">No records yet.</p>'; return; }
+    const COLORS = ['#f97316','#3b82f6','#22c55e','#a855f7','#ec4899','#14b8a6','#f59e0b','#ef4444'];
+    const slices = entries.sort((a,b)=>b[1].count-a[1].count)
+        .map(([label, s]) => ({ label, value: s.count, extra: s.area.toFixed(1)+' Ha' }));
+    target.innerHTML = buildDonutChart(slices, COLORS);
 }
 
 function renderDistrictOverviewFromServer(districts) {
     const target = document.getElementById('dashboard-districts');
     if (!target) return;
-    
-    if (!districts || !districts.length) {
-        target.innerHTML = '<div class="dashboard-row text-xs text-gray-500">No district data available.</div>';
-        return;
-    }
-    
-    target.innerHTML = districts.map(d => `
-        <div class="dashboard-row text-xs">
-            <div class="flex items-center justify-between">
-                <span class="font-semibold text-gray-700">${escapeHtml(d.name)}</span>
-                <span class="text-gray-500">${d.count} parcels</span>
-            </div>
-            <div class="mt-1 text-gray-500">Area: ${d.area.toFixed(2)} Ha | Value: Rs. ${formatInr(d.value)}</div>
-        </div>
-    `).join('');
+    if (!districts || !districts.length) { target.innerHTML = '<p style="color:#9ca3af;font-size:12px;">No district data.</p>'; return; }
+    const COLORS = ['#6366f1','#f97316','#10b981','#f59e0b','#f43f5e','#a855f7'];
+    const items = districts.map(d => ({
+        label: d.name,
+        value: d.count,
+        sublabel: `${d.count} parcels · ${d.area.toFixed(1)} Ha`
+    }));
+    target.innerHTML = buildRankedList(items, COLORS);
 }
 
 function renderTopValueParcelFromServer(parcel) {
@@ -1567,18 +1616,32 @@ async function viewRecordDetails(recordId) {
         document.getElementById('view-share').textContent = owner.share_pct ? owner.share_pct + '%' : 'N/A';
         document.getElementById('view-aadhaar').textContent = owner.aadhaar_mask || 'N/A';
         
+        // Owner document logic
+        const ownerDocContainer = document.getElementById('view-owner-doc-container');
+        const ownerDocLink = document.getElementById('view-owner-doc-link');
+        if (owner.proof_doc_b64) {
+            ownerDocContainer.classList.remove('hidden');
+            ownerDocLink.href = owner.proof_doc_b64;
+        } else {
+            ownerDocContainer.classList.add('hidden');
+        }
+
         // Mutation history
         const mutationsEl = document.getElementById('view-mutations');
         if (mutations.length > 0) {
-            mutationsEl.innerHTML = mutations.map(m => `
+            mutationsEl.innerHTML = mutations.map(m => {
+                const docLinkHTML = m.proof_doc_b64 ? `<a href="${m.proof_doc_b64}" download="Mutation_Proof" class="text-blue-600 hover:text-blue-800 font-medium underline flex items-center gap-1 mt-2 text-xs"><svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg> Download Proof</a>` : '';
+                return `
                 <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                     <div class="flex items-center justify-between">
                         <span class="text-sm font-medium text-gray-800">${m.previous_owner} (${m.previous_share_pct}%)</span>
                         <span class="text-xs text-gray-500">${m.mutation_type}</span>
                     </div>
                     <p class="text-xs text-gray-600 mt-1">Date: ${m.mutation_date} | Ref: ${m.mutation_ref || 'N/A'}</p>
+                    ${docLinkHTML}
                 </div>
-            `).join('');
+            `;
+            }).join('');
         } else {
             mutationsEl.innerHTML = '<p class="text-sm text-gray-500">No mutation history</p>';
         }
@@ -1876,47 +1939,73 @@ async function editRecord(recordId) {
     }
 }
 
+async function capturePolygonMapForPdf(geometry) {
+    return new Promise((resolve) => {
+        const W = 800, H = 450;
+        const wrap = document.createElement('div');
+        // Must be in-viewport for tiles to load and html-to-image to work
+        // Use opacity near-zero so user never sees it
+        wrap.style.cssText = `position:fixed;left:0;top:0;width:${W}px;height:${H}px;z-index:99999;opacity:0.01;pointer-events:none;`;
+        document.body.appendChild(wrap);
+
+        const pdfMap = L.map(wrap, { zoomControl: false, attributionControl: false });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(pdfMap);
+
+        if (geometry && geometry.coordinates && geometry.coordinates[0]) {
+            const latlngs = geometry.coordinates[0].map(c => [c[1], c[0]]);
+            const poly = L.polygon(latlngs, {
+                color: '#dc2626', weight: 3,
+                fillColor: '#fca5a5', fillOpacity: 0.35
+            }).addTo(pdfMap);
+            pdfMap.fitBounds(poly.getBounds(), { padding: [55, 55] });
+        } else {
+            pdfMap.setView([23.5, 77.5], 5);
+        }
+
+        setTimeout(async () => {
+            try {
+                // Briefly make fully visible for capture
+                wrap.style.opacity = '1';
+                const dataUrl = await window.htmlToImage.toPng(wrap, { pixelRatio: 1.5, width: W, height: H });
+                resolve(dataUrl);
+            } catch (e) {
+                console.warn('PDF map capture error:', e);
+                resolve(null);
+            } finally {
+                try { pdfMap.remove(); } catch (_) {}
+                try { document.body.removeChild(wrap); } catch (_) {}
+            }
+        }, 2500);
+    });
+}
+
 async function printCard(ulpin) {
     if (!ulpin) {
         showToast('No ULPIN available for this record.', 'error');
         return;
     }
 
-    showToast('Generating PDF property card. Please wait...', 'info');
+    showToast('Generating PDF — capturing map, please wait...', 'info');
 
-    // Find the currently visible map container
-    let mapDiv = document.getElementById('map') || document.getElementById('viewer-map');
-    const viewMapDiv = document.getElementById('view-record-map');
-    if (viewMapDiv && viewMapDiv.offsetParent !== null) {
-        mapDiv = viewMapDiv;
-    }
+    // Get geometry from selected record or cache
+    const record = selectedRecord || (allRecordsCache || []).find(r => r.ulpin === ulpin);
+    const geometry = record && record.geometry;
 
     let mapImageBase64 = null;
-    if (mapDiv && typeof window.htmlToImage !== 'undefined') {
-        try {
-            mapImageBase64 = await window.htmlToImage.toPng(mapDiv, {
-                pixelRatio: 1  // prevents memory issues with large tile maps
-            });
-        } catch (err) {
-            console.warn("Failed to capture map image:", err);
-        }
+    if (geometry && typeof window.htmlToImage !== 'undefined') {
+        mapImageBase64 = await capturePolygonMapForPdf(geometry);
     }
 
     try {
         const res = await fetch(getPropertyCardUrl(ulpin), {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                ...FETCH_OPTS.headers
-            },
+            headers: { 'Content-Type': 'application/json', ...FETCH_OPTS.headers },
             body: JSON.stringify({ map_image: mapImageBase64 })
         });
-        
         if (!res.ok) {
             const err = await res.json();
             throw new Error(err.error || 'Failed to generate property card');
         }
-        
         const blob = await res.blob();
         const url = window.URL.createObjectURL(blob);
         downloadFile(url, `Property_Card_${ulpin}.pdf`);
@@ -1927,25 +2016,23 @@ async function printCard(ulpin) {
 }
 
 function confirmDelete(recordId, khasraNo) {
-    if (!confirm(`Are you sure you want to delete record "${khasraNo}"?\n\nThis action cannot be undone.`)) {
-        return;
-    }
-
-    deleteRecord(recordId).then(() => {
-        showToast(`Record "${khasraNo}" deleted successfully.`, 'success');
-        selectedRecordId = null;
-        selectedRecord = null;
-        
-        // Hide details panel
-        const detailsPanel = document.getElementById('map-details-panel');
-        const detailsActions = document.getElementById('map-details-actions');
-        if (detailsPanel) detailsPanel.classList.add('hidden');
-        if (detailsActions) detailsActions.classList.add('hidden');
-        
-        loadRecordsOnMap();
-        switchMainTab('records');
-    }).catch(err => {
-        showToast(`Delete failed: ${err.message}`, 'error');
+    showConfirmModal(`Are you sure you want to delete record "${khasraNo}"?\n\nThis action cannot be undone.`, () => {
+        deleteRecord(recordId).then(() => {
+            showToast(`Record "${khasraNo}" deleted successfully.`, 'success');
+            selectedRecordId = null;
+            selectedRecord = null;
+            
+            // Hide details panel
+            const detailsPanel = document.getElementById('map-details-panel');
+            const detailsActions = document.getElementById('map-details-actions');
+            if (detailsPanel) detailsPanel.classList.add('hidden');
+            if (detailsActions) detailsActions.classList.add('hidden');
+            
+            loadRecordsOnMap();
+            switchMainTab('records');
+        }).catch(err => {
+            showToast(`Delete failed: ${err.message}`, 'error');
+        });
     });
 }
 
@@ -2144,16 +2231,58 @@ function lookupLocationForAddRecord(lat, lng) {
     if (addRecordLookupTimer) {
         clearTimeout(addRecordLookupTimer);
     }
+
+    // Show "Detecting..." in the GPS banner
+    const gpsBanner = document.getElementById('gps-detected-banner');
+    if (gpsBanner) {
+        gpsBanner.classList.remove('hidden');
+        gpsBanner.innerHTML = `
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-green-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                <span class="text-xs font-semibold text-green-700">Detecting location from GPS coordinates...</span>
+            </div>`;
+    }
     
     addRecordLookupTimer = setTimeout(async function() {
         try {
             const locationData = await fetchLocationFromCoordinates(lat, lng);
             if (locationData && locationData.state && locationData.district && locationData.village) {
-                setLocationValues(locationData.state, locationData.district, locationData.village);
-                document.getElementById('form-location-source').textContent = `Source: ${locationData.display_name || 'Map reverse geocoding'}`;
+                // Store what GPS detected
+                lastGpsDetectedLocation = {
+                    state: locationData.state,
+                    district: locationData.district,
+                    village: locationData.village
+                };
+
+                // Update form dropdowns if not in manual override mode
+                const manualOverrideNow = document.getElementById('location-manual-override');
+                if (!manualOverrideNow || !manualOverrideNow.checked) {
+                    setLocationValues(locationData.state, locationData.district, locationData.village);
+                    document.getElementById('form-location-source').textContent = `Source: ${locationData.display_name || 'Map reverse geocoding'}`;
+                }
+
+                // Update GPS banner with confirmed location
+                if (gpsBanner) {
+                    gpsBanner.innerHTML = `
+                        <div class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                            <div>
+                                <p class="text-xs font-bold text-green-800">GPS Detected Location</p>
+                                <p class="text-xs text-green-700 mt-0.5">
+                                    <span class="font-semibold">${escapeHtml(locationData.state)}</span> &rsaquo;
+                                    <span class="font-semibold">${escapeHtml(locationData.district)}</span> &rsaquo;
+                                    ${escapeHtml(locationData.village)}
+                                </p>
+                            </div>
+                        </div>`;
+                }
+            } else {
+                lastGpsDetectedLocation = { state: '', district: '', village: '' };
+                if (gpsBanner) gpsBanner.classList.add('hidden');
             }
         } catch (err) {
             console.error('Location lookup failed:', err);
+            if (gpsBanner) gpsBanner.classList.add('hidden');
         }
     }, 800);
 }
@@ -2185,10 +2314,14 @@ async function updateGeometryMetricsForAddRecord(geometry) {
         
         if (areaEquivalents) {
             areaEquivalents.classList.remove('hidden');
+            const bigha = areaData.area_bigha_assam || (areaData.area_ha * 7.4752).toFixed(2);
+            const lecha = areaData.area_lecha_assam || Math.round(areaData.area_ha * 747.52);
             areaEquivalents.innerHTML = `
                 <div><strong>${areaData.area_ha || '?'}</strong> Ha</div>
                 <div><strong>${areaData.area_acres || '?'}</strong> Acres</div>
                 <div><strong>${areaData.area_guntha || '?'}</strong> Guntha</div>
+                <div style="color:#ea580c"><strong>${bigha}</strong> Bigha</div>
+                <div style="color:#ea580c"><strong>${lecha}</strong> Lecha</div>
             `;
         }
         
@@ -2277,7 +2410,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // Check if we're on the admin dashboard
     if (!document.getElementById('map')) return;
 
-    // ─── Prevent back button from exiting to login page ─────────────────────
+    // --- Prevent back button from exiting to login page ---
     // Push a state when page loads so back button stays within the app
     history.pushState({ page: 'admin', tab: 'records' }, '', window.location.href);
 
@@ -2305,8 +2438,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Start with records tab active
-    switchMainTab('records');
+    // Start with dashboard tab active
+    switchMainTab('dashboard');
     
     // Back to records button
     const backBtn = document.getElementById('btn-back-to-records');
@@ -2481,7 +2614,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // ─── Profile Tab Event Handlers ─────────────────────────────────────────
+    // --- Profile Tab Event Handlers ---
     // Load profile and users when profile tab is first opened
     let profileLoaded = false;
     
@@ -2660,20 +2793,94 @@ async function performAdminSearch() {
     }
 }
 
+function fileToBase64(file) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = error => reject(error);
+    });
+}
+
 async function handleFormSubmit() {
     const recordId = document.getElementById('form-record-id').value;
     const geometryStr = document.getElementById('form-geometry').value;
 
-    console.log('Form submit - recordId:', recordId);
-    console.log('Form submit - geometryStr:', geometryStr ? geometryStr.substring(0, 60) + '...' : 'EMPTY');
+    
+    const locationValues = {
+        state: document.getElementById('form-state-manual').value || document.getElementById('form-state').value,
+        district: document.getElementById('form-district-manual').value || document.getElementById('form-district').value,
+        village: document.getElementById('form-village-manual').value || document.getElementById('form-village').value
+    };
 
-    const locationValues = getEffectiveLocationValues();
-
-    // Validate location
     if (!locationValues.state || !locationValues.district || !locationValues.village) {
-        showToast('Location fields are required. Use map auto-fill or manual override.', 'error');
+        showToast('Location (State, District, Village) is required.', 'error');
         switchFormTab('location');
         return;
+    }
+
+    // GPS Mismatch Warning: Only check if we have GPS data AND manual override is active
+    const manualOverrideEl = document.getElementById('location-manual-override');
+    const isManualOverride = manualOverrideEl && manualOverrideEl.checked;
+    const hasGpsData = lastGpsDetectedLocation.state && lastGpsDetectedLocation.district;
+
+    if (isManualOverride && hasGpsData) {
+        const stateMatch = locationValues.state.trim().toLowerCase() === lastGpsDetectedLocation.state.trim().toLowerCase();
+        const districtMatch = locationValues.district.trim().toLowerCase() === lastGpsDetectedLocation.district.trim().toLowerCase();
+
+        if (!stateMatch || !districtMatch) {
+            // Show a blocking mismatch warning modal
+            const proceed = await new Promise(resolve => {
+                const overlay = document.createElement('div');
+                overlay.className = 'fixed inset-0 bg-black bg-opacity-60 z-[9999] flex items-center justify-center p-4';
+                overlay.style.backdropFilter = 'blur(3px)';
+
+                overlay.innerHTML = `
+                    <div class="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden">
+                        <div class="bg-yellow-50 border-b-4 border-yellow-400 px-6 py-4 flex items-center gap-3">
+                            <svg class="w-8 h-8 text-yellow-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                            <h3 class="text-lg font-bold text-yellow-800">Location Mismatch Warning</h3>
+                        </div>
+                        <div class="px-6 py-5">
+                            <p class="text-sm text-gray-600 mb-4">The location you entered does not match the GPS coordinates of the parcel you drew on the map.</p>
+                            <div class="grid grid-cols-2 gap-3 mb-4">
+                                <div class="bg-green-50 rounded-lg p-3 border border-green-200">
+                                    <p class="text-xs font-bold text-green-700 mb-1">📡 GPS Detected</p>
+                                    <p class="text-sm font-semibold text-green-800">${escapeHtml(lastGpsDetectedLocation.state)}</p>
+                                    <p class="text-xs text-green-600">${escapeHtml(lastGpsDetectedLocation.district)}</p>
+                                </div>
+                                <div class="bg-red-50 rounded-lg p-3 border border-red-200">
+                                    <p class="text-xs font-bold text-red-700 mb-1">✏️ You Entered</p>
+                                    <p class="text-sm font-semibold text-red-800">${escapeHtml(locationValues.state)}</p>
+                                    <p class="text-xs text-red-600">${escapeHtml(locationValues.district)}</p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mb-5">Are you sure you want to continue with the manually entered location? This may cause incorrect revenue records.</p>
+                            <div class="flex gap-3">
+                                <button id="mismatch-cancel" class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition">← Use GPS Location</button>
+                                <button id="mismatch-force" class="flex-1 px-4 py-2 bg-red-100 hover:bg-red-200 text-red-700 rounded-lg text-sm font-medium transition">Force Save Anyway</button>
+                            </div>
+                        </div>
+                    </div>`;
+
+                document.body.appendChild(overlay);
+                overlay.querySelector('#mismatch-cancel').addEventListener('click', () => {
+                    // Auto-fill with GPS-detected location
+                    const manualOvEl = document.getElementById('location-manual-override');
+                    if (manualOvEl) manualOvEl.checked = false;
+                    toggleManualLocationOverride(false);
+                    setLocationValues(lastGpsDetectedLocation.state, lastGpsDetectedLocation.district, lastGpsDetectedLocation.village);
+                    document.body.removeChild(overlay);
+                    resolve(false);
+                });
+                overlay.querySelector('#mismatch-force').addEventListener('click', () => {
+                    document.body.removeChild(overlay);
+                    resolve(true);
+                });
+            });
+
+            if (!proceed) return; // User chose to fix location — abort save
+        }
     }
 
     // Validate parcel fields
@@ -2730,6 +2937,14 @@ async function handleFormSubmit() {
     submitBtn.innerHTML = '<span class="spinner"></span> Saving...';
 
     try {
+        let ownerDocB64 = undefined;
+        const ownerDocFile = document.getElementById('form-owner-doc')?.files[0];
+        if (ownerDocFile) ownerDocB64 = await fileToBase64(ownerDocFile);
+
+        let mutationDocB64 = undefined;
+        const mutationDocFile = document.getElementById('form-mutation-doc')?.files[0];
+        if (mutationDocFile) mutationDocB64 = await fileToBase64(mutationDocFile);
+
         if (recordId) {
             const updateData = {
                 khasra_no: document.getElementById('form-khasra').value,
@@ -2739,7 +2954,8 @@ async function handleFormSubmit() {
                 share_pct: parseFloat(document.getElementById('form-share').value) || 100,
                 aadhaar_mask: document.getElementById('form-aadhaar').value,
                 geometry: geometry,
-                location: locationValues
+                location: locationValues,
+                owner_proof_doc_b64: ownerDocB64
             };
 
             const newOwner = document.getElementById('form-new-owner').value.trim();
@@ -2749,6 +2965,7 @@ async function handleFormSubmit() {
                 updateData.new_share_pct = parseFloat(document.getElementById('form-new-share').value) || 100;
                 updateData.mutation_type = document.getElementById('form-mutation-type').value;
                 updateData.mutation_date = document.getElementById('form-mutation-date').value || new Date().toISOString().split('T')[0];
+                updateData.mutation_proof_doc_b64 = mutationDocB64;
             }
 
             await updateRecord(recordId, updateData);
@@ -2764,7 +2981,8 @@ async function handleFormSubmit() {
                 share_pct: parseFloat(document.getElementById('form-share').value) || 100,
                 aadhaar_mask: document.getElementById('form-aadhaar').value || 'XXXX-XXXX-XXXX',
                 geometry: geometry,
-                location: locationValues
+                location: locationValues,
+                owner_proof_doc_b64: ownerDocB64
             };
 
             const result = await createRecord(recordData);
@@ -2847,8 +3065,7 @@ function resetForm() {
     }
 }
 
-// ─── Profile & User Management ─────────────────────────────────────────────────
-
+// --- Profile & User Management ---
 let currentProfile = null;
 let allUsers = [];
 
@@ -2893,7 +3110,7 @@ function displayProfile(profile) {
 async function loadFeedback() {
     try {
         const tbody = document.getElementById('feedback-table-body');
-        if (tbody) tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">Loading...</td></tr>';
+        if (tbody) tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-center text-gray-500">Loading...</td></tr>';
         
         const res = await fetch(`${API_BASE}/api/feedback`, { credentials: 'include' });
         const feedbackList = await res.json();
@@ -2901,7 +3118,7 @@ async function loadFeedback() {
         if (tbody) {
             tbody.innerHTML = '';
             if (feedbackList.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="px-4 py-4 text-center text-gray-500">No feedback forms right now.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-4 text-center text-gray-500">No feedback forms right now.</td></tr>';
                 return;
             }
             
@@ -2915,13 +3132,18 @@ async function loadFeedback() {
                 const dateStr = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
                 tr.innerHTML = `
                     <td class="px-4 py-3 whitespace-nowrap text-gray-800">${dateStr}</td>
-                    <td class="px-4 py-3 text-gray-600 truncate max-w-[150px]" title="${fb.email}">${fb.email}</td>
+                    <td class="px-4 py-3 text-gray-600 truncate max-w-[150px]" title="${escapeHtml(fb.email)}">${escapeHtml(fb.email)}</td>
                     <td class="px-4 py-3">
                         <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                            ${fb.type}
+                            ${escapeHtml(fb.type)}
                         </span>
                     </td>
-                    <td class="px-4 py-3 text-gray-700 min-w-[200px] break-words">${fb.message}</td>
+                    <td class="px-4 py-3 text-gray-700 min-w-[200px] break-words">${escapeHtml(fb.message)}</td>
+                    <td class="px-4 py-3 text-right">
+                        <button onclick="deleteFeedback('${fb.id}')" class="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50 transition" title="Delete">
+                            <svg class="w-4 h-4 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                        </button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -2931,8 +3153,30 @@ async function loadFeedback() {
     }
 }
 
+function deleteFeedback(feedbackId) {
+    showConfirmModal("Are you sure you want to delete this feedback report?\n\nThis action is permanent and cannot be recovered.", async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/feedback/${feedbackId}`, {
+                credentials: 'include',
+                method: 'DELETE'
+            });
+            
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error);
+            
+            showToast("Feedback deleted successfully.", "success");
+            loadFeedback(); // Refresh the table
+        } catch (err) {
+            showToast(`Failed to delete feedback: ${err.message}`, "error");
+        }
+    });
+}
+
 async function loadUsers() {
     try {
+        if (!sessionUsername) {
+            await getSessionUsername();
+        }
         allUsers = await fetch(`${API_BASE}/api/users`, { credentials: 'include' }).then(r => r.json());
         renderUsersTable();
     } catch (err) {
@@ -3112,22 +3356,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-async function deleteUser(userId, username) {
-    if (!confirm(`Are you sure you want to delete user "${username}"?`)) return;
-    
-    try {
-        await fetch(`${API_BASE}/api/users/${userId}`, {
-            credentials: 'include',
-            method: 'DELETE'
-        }).then(async r => {
-            const data = await r.json();
-            if (!r.ok) throw new Error(data.error);
-            return data;
-        });
-        
-        showToast(`User "${username}" deleted.`, 'success');
-        loadUsers();
-    } catch (err) {
-        showToast(`Failed to delete user: ${err.message}`, 'error');
-    }
+function deleteUser(userId, username) {
+    showConfirmModal(`Are you sure you want to delete user "${username}"?`, async () => {
+        try {
+            await fetch(`${API_BASE}/api/users/${userId}`, {
+                credentials: 'include',
+                method: 'DELETE'
+            }).then(async r => {
+                const data = await r.json();
+                if (!r.ok) throw new Error(data.error);
+                return data;
+            });
+            
+            showToast(`User "${username}" deleted.`, 'success');
+            loadUsers();
+        } catch (err) {
+            showToast(`Failed to delete user: ${err.message}`, 'error');
+        }
+    });
 }

@@ -35,18 +35,24 @@ except Exception:
     pass  # Will load on first request if fails at startup
 
 
-# ─── Constants for Unit Conversion ──────────────────────────────────────────────
+# --- Constants for Unit Conversion ---
 # 1 Hectare = 2.47105 Acres
 # 1 Hectare = 100.00065 Guntha (standardized)
-# 1 Hectare = 395.367 Bigha (varies by state; using MP standard)
 # 1 Hectare = 107639.104 Sq. Ft.
 
 HECTARE_TO_ACRE = 2.47105
 HECTARE_TO_GUNTHA = 100.00065
 HECTARE_TO_SQFT = 107639.104
+
 # Bigha varies significantly by state. Using Madhya Pradesh standard:
 # 1 Bigha ≈ 0.2529 Hectares in MP
 HECTARE_TO_BIGHA_MP = 3.9537
+
+# Assam (Northeast India) Land Units:
+# 1 Assam Bigha = 14,400 sq ft = 1,337.804 sq meters ≈ 0.13378 Ha
+# 1 Lecha = 144 sq ft = 1/100 Assam Bigha
+HECTARE_TO_BIGHA_ASSAM = 7.4752   # 1 Ha = 7.4752 Assam Bigha
+HECTARE_TO_LECHA_ASSAM = 747.52   # 1 Ha = 747.52 Lecha
 
 # WGS84 Authalic Radius (equal-area sphere radius for area calculations)
 WGS84_AUTHALIC_RADIUS = 6371007.180918  # meters
@@ -83,6 +89,8 @@ def calculate_area(geometry_dict):
             "area_guntha": round(area_ha * HECTARE_TO_GUNTHA, 2),
             "area_sqft": round(area_ha * HECTARE_TO_SQFT, 2),
             "area_bigha_mp": round(area_ha * HECTARE_TO_BIGHA_MP, 4),
+            "area_bigha_assam": round(area_ha * HECTARE_TO_BIGHA_ASSAM, 2),
+            "area_lecha_assam": round(area_ha * HECTARE_TO_LECHA_ASSAM, 0),
             "unit": "hectares"
         }
     except Exception as e:

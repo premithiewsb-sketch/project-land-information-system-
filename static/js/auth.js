@@ -5,15 +5,40 @@
 
 document.addEventListener('DOMContentLoaded', function() {
 
-    // ─── Only run session check on login page ───────────────────────────────
+    // --- Only run session check on login page ---
     const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
     if (isLoginPage) {
         checkSessionAndRedirect();
     }
 
-    // ─── CAPTCHA Form Handling ──────────────────────────────────────────────
+    // --- Tab Navigation Handling ---
+    const tabPublic = document.getElementById('tab-public');
+    const tabAdmin = document.getElementById('tab-admin');
+    const panelPublic = document.getElementById('panel-public');
+    const panelAdmin = document.getElementById('panel-admin');
+
+    if (tabPublic && tabAdmin && panelPublic && panelAdmin) {
+        tabPublic.addEventListener('click', () => {
+            panelPublic.classList.remove('hidden');
+            panelAdmin.classList.add('hidden');
+            
+            tabPublic.className = "flex-1 py-4 text-sm font-semibold text-center text-green-700 border-b-2 border-green-500 bg-green-50 transition-colors focus:outline-none";
+            tabAdmin.className = "flex-1 py-4 text-sm font-semibold text-center text-gray-500 border-b-2 border-transparent hover:text-orange-600 hover:bg-orange-50 transition-colors focus:outline-none";
+        });
+
+        tabAdmin.addEventListener('click', () => {
+            panelAdmin.classList.remove('hidden');
+            panelPublic.classList.add('hidden');
+            
+            tabAdmin.className = "flex-1 py-4 text-sm font-semibold text-center text-orange-700 border-b-2 border-orange-500 bg-orange-50 transition-colors focus:outline-none";
+            tabPublic.className = "flex-1 py-4 text-sm font-semibold text-center text-gray-500 border-b-2 border-transparent hover:text-green-600 hover:bg-green-50 transition-colors focus:outline-none";
+        });
+    }
+
+    // --- CAPTCHA Form Handling ---
     const captchaForm = document.getElementById('captcha-form');
     const captchaAnswer = document.getElementById('captcha-answer');
+    const captchaToken = document.getElementById('captcha-token');
     const captchaError = document.getElementById('captcha-error');
     const captchaQuestionEl = document.getElementById('captcha-question');
 
@@ -22,6 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
 
             const answer = captchaAnswer.value.trim();
+            const token = captchaToken.value.trim();
             if (!answer) {
                 showCaptchaError('Please enter the answer.');
                 return;
@@ -34,7 +60,7 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.innerHTML = '<span class="spinner"></span> Verifying...';
 
             try {
-                const result = await verifyCaptcha(answer);
+                const result = await verifyCaptcha(answer, token);
 
                 if (result.success) {
                     // Replace current history entry so back button doesn't return to login
@@ -44,6 +70,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Update CAPTCHA question if a new one was provided
                     if (result.new_question && captchaQuestionEl) {
                         captchaQuestionEl.textContent = result.new_question;
+                    }
+                    if (result.new_token && captchaToken) {
+                        captchaToken.value = result.new_token;
                     }
                     captchaAnswer.value = '';
                     captchaAnswer.focus();
@@ -57,6 +86,34 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    const refreshCaptchaBtn = document.getElementById('refresh-captcha');
+    if (refreshCaptchaBtn && captchaQuestionEl && captchaToken) {
+        refreshCaptchaBtn.addEventListener('click', async function() {
+            try {
+                // Optionally show a spinning state
+                const originalIcon = refreshCaptchaBtn.innerHTML;
+                refreshCaptchaBtn.innerHTML = '<span class="spinner w-4 h-4 mr-1"></span> Regenerating...';
+                refreshCaptchaBtn.disabled = true;
+
+                const result = await getCaptcha();
+                if (result.question && result.token) {
+                    captchaQuestionEl.textContent = result.question;
+                    captchaToken.value = result.token;
+                    captchaAnswer.value = '';
+                    captchaAnswer.focus();
+                } else {
+                    showCaptchaError('Failed to get new CAPTCHA.');
+                }
+                
+                refreshCaptchaBtn.innerHTML = originalIcon;
+                refreshCaptchaBtn.disabled = false;
+            } catch (err) {
+                showCaptchaError('Error refreshing CAPTCHA.');
+                refreshCaptchaBtn.disabled = false;
+            }
+        });
+    }
+
     function showCaptchaError(msg) {
         if (captchaError) {
             captchaError.textContent = msg;
@@ -65,7 +122,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ─── Admin Login Form Handling ──────────────────────────────────────────
+    // --- Admin Login Form Handling ---
     const loginForm = document.getElementById('login-form');
     const usernameInput = document.getElementById('username');
     const passwordInput = document.getElementById('password');
@@ -117,7 +174,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // ─── Logout Button (present on admin & viewer pages) ────────────────────
+    // --- Logout Button (present on admin & viewer pages) ---
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async function() {
@@ -133,7 +190,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
-// ─── Session Check Helper ────────────────────────────────────────────────────
+// --- Session Check Helper ---
 async function checkSessionAndRedirect() {
     // Check sessionStorage cache first (5-minute TTL)
     const CACHE_KEY = 'lims_session_cache';

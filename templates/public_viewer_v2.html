@@ -15,8 +15,8 @@
     <nav class="bg-gradient-to-r from-green-600 to-green-700 shadow-lg z-50 flex-shrink-0">
         <div class="flex items-center justify-between px-4 sm:px-6 py-3">
             <div class="flex items-center gap-2 sm:gap-3">
-                <!-- Mobile: Filter Toggle Button -->
-                <button id="btn-toggle-filters" class="md:hidden text-white hover:bg-white/20 transition p-2 rounded-lg">
+                <!-- Mobile: Filter Toggle Button (Hidden as we use Floating UI now) -->
+                <button id="btn-toggle-filters" class="hidden text-white hover:bg-white/20 transition p-2 rounded-lg">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
                 <div class="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-lg flex items-center justify-center shadow-md">
@@ -39,9 +39,11 @@
                     <span class="text-sm font-medium text-white">Viewer</span>
                     <span class="text-xs bg-white/30 text-white px-2 py-0.5 rounded-full font-semibold">READ-ONLY</span>
                 </div>
-                <button id="btn-help-support" class="flex text-white/90 hover:text-white hover:bg-white/20 transition px-2 sm:px-3 py-1.5 sm:py-2 rounded-lg items-center gap-1 sm:gap-2 text-xs sm:text-sm font-medium border border-white/30" title="Help & Support">
-                    <svg class="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-                    <span class="hidden sm:inline">Help</span>
+                <!-- Primary CTA for Public Viewer -->
+                <button id="btn-help-support" class="flex bg-orange-500 hover:bg-orange-600 text-white transition px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg items-center gap-1.5 sm:gap-2 text-xs sm:text-sm font-bold shadow-md" title="Report an Issue">
+                    <svg class="w-4 h-4 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <span class="hidden sm:inline">Report Issue</span>
+                    <span class="sm:hidden">Report</span>
                 </button>
                 <button id="btn-logout" class="text-white/80 hover:text-white hover:bg-white/20 transition p-2 rounded-lg" title="Logout">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -54,23 +56,31 @@
     <div class="flex-1 flex overflow-hidden relative">
 
         <!-- Mobile Overlay Backdrop -->
-        <div id="filter-overlay" class="fixed inset-0 bg-black/50 z-30 hidden md:hidden"></div>
+                <div id="filter-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[1000] hidden md:hidden transition-opacity"></div>
 
-        <!-- Left Sidebar: Filters -->
-        <div id="filter-sidebar" class="fixed md:relative inset-y-0 left-0 w-80 bg-white shadow-lg z-40 flex flex-col overflow-y-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 ease-in-out">
-            <div class="p-4 space-y-4">
-                <div class="flex items-center justify-between pb-3 border-b border-gray-200">
-                    <div class="flex items-center gap-2">
-                        <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
-                        </svg>
-                        <h2 class="text-lg font-bold text-gray-800">Filter Parcels</h2>
+                <!-- Floating Filter UI (Mobile) / Left Sidebar (Desktop) -->
+                <div id="filter-sidebar" class="fixed md:relative inset-x-3 bottom-4 top-auto md:inset-y-0 md:left-0 md:bottom-auto md:top-auto md:w-80 bg-white rounded-2xl md:rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.3)] md:shadow-lg z-[1001] md:z-40 flex flex-col max-h-[85vh] md:max-h-none transition-transform duration-300 ease-in-out overflow-hidden" style="transform: translateY(120%);">
+                    
+                    <!-- Mobile Drag Handle -->
+                    <div class="w-full flex justify-center pt-3 pb-1 md:hidden flex-shrink-0 bg-white">
+                        <div class="w-12 h-1.5 bg-gray-300 rounded-full"></div>
                     </div>
-                    <!-- Mobile Close Button -->
-                    <button id="btn-close-filters" class="md:hidden text-gray-400 hover:text-gray-600 transition p-1">
-                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
+
+                    <div class="px-4 pb-3 pt-1 md:pt-4 border-b border-gray-200 flex justify-between items-center flex-shrink-0 bg-white">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"/>
+                            </svg>
+                            <h2 class="text-lg font-bold text-gray-800">Filter Parcels</h2>
+                        </div>
+                        <!-- Mobile Close Button -->
+                        <button id="btn-close-filters" class="md:hidden text-gray-500 hover:text-gray-800 transition p-1.5 bg-gray-100 hover:bg-gray-200 rounded-full">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Scrollable content -->
+                    <div class="p-4 space-y-4 overflow-y-auto flex-1 bg-white">
 
                 <!-- Search -->
                 <div>
@@ -140,44 +150,10 @@
                     <p class="text-sm text-gray-600">parcels</p>
                 </div>
 
-                <!-- Legend -->
-                <div class="pt-3 border-t border-gray-200">
-                    <h3 class="text-sm font-semibold text-gray-700 mb-2">Map Legend</h3>
-                    <div class="space-y-1.5 text-xs">
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded" style="background: #22c55e;"></div>
-                            <span class="text-gray-600">Agricultural</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded" style="background: #3b82f6;"></div>
-                            <span class="text-gray-600">Residential</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded" style="background: #f59e0b;"></div>
-                            <span class="text-gray-600">Commercial</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded" style="background: #8b5cf6;"></div>
-                            <span class="text-gray-600">Industrial</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded" style="background: #ef4444;"></div>
-                            <span class="text-gray-600">Government</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded" style="background: #065f46;"></div>
-                            <span class="text-gray-600">Forest</span>
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <div class="w-4 h-4 rounded" style="background: #9ca3af;"></div>
-                            <span class="text-gray-600">Wasteland</span>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <!-- Bottom: Version -->
-            <div class="mt-auto border-t p-3 bg-gray-50">
+                    <div class="border-t p-3 bg-gray-50 flex-shrink-0 md:mt-auto rounded-b-2xl md:rounded-none">
                 <p class="text-xs text-gray-500 text-center">India LIMS v1.0</p>
             </div>
         </div>
@@ -188,47 +164,74 @@
             <div id="map-wrapper" class="flex-1 relative" style="min-height: 0;">
                 <div id="map" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; width: 100%; height: 100%;"></div>
 
-                <!-- Layer Switcher (top-right) - Compact on mobile -->
-                <div class="absolute top-2 right-2 sm:top-3 sm:right-3 z-[999] bg-white rounded-lg shadow-lg p-2 sm:p-3 max-sm:scale-90 max-sm:origin-top-right">
-                    <p class="text-[10px] sm:text-xs font-semibold text-gray-500 mb-1 sm:mb-2 px-1">BASEMAP</p>
-                    <div class="space-y-1 sm:space-y-2">
-                        <label class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs sm:text-sm">
-                            <input type="radio" name="basemap" value="osm" checked class="text-green-600 focus:ring-green-500">
-                            <span>Street</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs sm:text-sm">
-                            <input type="radio" name="basemap" value="google" class="text-green-600 focus:ring-green-500">
-                            <span>Google</span>
-                        </label>
-                        <label class="flex items-center gap-1.5 sm:gap-2 px-1.5 sm:px-2 py-1 sm:py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer text-xs sm:text-sm">
-                            <input type="radio" name="basemap" value="esri" class="text-green-600 focus:ring-green-500">
-                            <span>Satellite</span>
-                        </label>
+                <!-- Layer Switcher: compact pill tabs top-right, always visible -->
+                <div id="layer-switcher" class="absolute top-3 right-3 z-[500] flex flex-col items-end gap-2 pointer-events-none">
+                    <!-- Basemap Tabs -->
+                    <div class="bg-white/95 backdrop-blur rounded-xl shadow-md border border-gray-100 flex items-center p-1 gap-0.5 pointer-events-auto">
+                        <button data-basemap="osm"   class="basemap-btn active-basemap px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all">Street</button>
+                        <button data-basemap="google" class="basemap-btn px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all text-gray-500 hover:bg-gray-100">Google</button>
+                        <button data-basemap="esri"   class="basemap-btn px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all text-gray-500 hover:bg-gray-100">Sat</button>
+                    </div>
+                    <!-- Legend: always visible on desktop, hidden on mobile (use floating toggle instead) -->
+                    <div id="legend-desktop" class="hidden sm:block bg-white/95 backdrop-blur rounded-xl shadow-md border border-gray-100 p-3 pointer-events-auto">
+                        <p class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-2">Land Use</p>
+                        <div class="space-y-1.5">
+                            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#22c55e"></div><span class="text-[11px] text-gray-700 font-medium">Agricultural</span></div>
+                            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#3b82f6"></div><span class="text-[11px] text-gray-700 font-medium">Residential</span></div>
+                            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#f59e0b"></div><span class="text-[11px] text-gray-700 font-medium">Commercial</span></div>
+                            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#8b5cf6"></div><span class="text-[11px] text-gray-700 font-medium">Industrial</span></div>
+                            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#ef4444"></div><span class="text-[11px] text-gray-700 font-medium">Government</span></div>
+                            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#065f46"></div><span class="text-[11px] text-gray-700 font-medium">Forest</span></div>
+                            <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#9ca3af"></div><span class="text-[11px] text-gray-700 font-medium">Wasteland</span></div>
+                        </div>
+                    </div>
+                </div>
+                <style>
+                    .basemap-btn.active-basemap { background:#16a34a; color:#fff; }
+                </style>
+
+                <!-- Mobile Legend: floating toggle button + slide-up panel (bottom-left) -->
+                <button id="btn-legend-mobile" class="sm:hidden absolute bottom-20 left-3 z-[500] bg-white/95 backdrop-blur border border-gray-200 shadow-md rounded-full w-10 h-10 flex items-center justify-center pointer-events-auto" title="Map Legend">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h8"/></svg>
+                </button>
+                <!-- Mobile Legend Panel -->
+                <div id="legend-mobile-panel" class="sm:hidden absolute bottom-32 left-3 z-[501] bg-white/97 backdrop-blur rounded-2xl shadow-xl border border-gray-100 p-4 pointer-events-auto" style="transform:translateY(20px);opacity:0;pointer-events:none;transition:transform 0.25s ease,opacity 0.25s ease;">
+                    <div class="flex items-center justify-between mb-3">
+                        <p class="text-xs font-bold text-gray-700 uppercase tracking-wider">Land Use Legend</p>
+                        <button id="btn-legend-mobile-close" class="text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100 transition">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-2">
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#22c55e"></div><span class="text-[12px] text-gray-700 font-medium">Agricultural</span></div>
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#3b82f6"></div><span class="text-[12px] text-gray-700 font-medium">Residential</span></div>
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#f59e0b"></div><span class="text-[12px] text-gray-700 font-medium">Commercial</span></div>
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#8b5cf6"></div><span class="text-[12px] text-gray-700 font-medium">Industrial</span></div>
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#ef4444"></div><span class="text-[12px] text-gray-700 font-medium">Government</span></div>
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#065f46"></div><span class="text-[12px] text-gray-700 font-medium">Forest</span></div>
+                        <div class="flex items-center gap-2"><div class="w-3 h-3 rounded-sm flex-shrink-0" style="background:#9ca3af"></div><span class="text-[12px] text-gray-700 font-medium">Wasteland</span></div>
                     </div>
                 </div>
 
-                <!-- Coordinates Display (bottom-left) - Smaller on mobile -->
-                <div class="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 z-[998] bg-white/90 backdrop-blur rounded-lg shadow px-2 sm:px-4 py-1 sm:py-2 text-[10px] sm:text-xs text-gray-600 font-mono">
-                    <span id="cursor-coords">Lat: --, Lng: --</span>
-                </div>
 
-                <!-- Loading Indicator -->
-                <div id="map-loading" class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[2000] bg-white rounded-lg shadow-xl px-6 py-4 hidden">
-                    <div class="flex items-center gap-3">
-                        <div class="spinner w-5 h-5 border-2 border-gray-200 rounded-full border-t-green-600 animate-spin"></div>
-                        <p class="text-sm text-gray-600">Loading parcels...</p>
-                    </div>
-                </div>
+                <!-- Mobile Floating Action Button (Search/Filter) -->
+                <button id="btn-mobile-fab" class="md:hidden absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[20] bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.2)] font-bold text-sm flex items-center gap-2 border border-white/20 transition-transform duration-300 active:scale-95 whitespace-nowrap">
+                    <svg class="w-5 h-5 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    Search Records
+                </button>
+
+
             </div>
 
             <!-- Details Side Panel (slides in from right) -->
             <div id="parcel-panel" class="w-full md:w-[420px] bg-white shadow-2xl border-l border-gray-200 flex flex-col transition-transform duration-300 ease-in-out transform translate-x-full absolute right-0 top-0 bottom-0 z-[1000]">
                 <!-- Panel Header -->
-                <div class="bg-gradient-to-r from-green-600 to-green-700 text-white px-5 py-4 flex items-center justify-between flex-shrink-0">
-                    <h3 class="font-bold text-base" id="parcel-title">Property Details</h3>
-                    <button id="parcel-close" class="text-green-200 hover:text-white transition p-1">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                <div class="bg-gradient-to-r from-green-600 to-green-700 text-white px-4 py-3 sm:py-4 flex items-center gap-3 flex-shrink-0 shadow-md z-10">
+                    <button id="parcel-close" class="text-white hover:bg-white/20 transition p-2 rounded-full flex items-center justify-center -ml-1">
+                        <svg class="w-5 h-5 sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                        <svg class="w-6 h-6 hidden sm:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
+                    <h3 class="font-bold text-base sm:text-lg tracking-wide" id="parcel-title">Property Details</h3>
                 </div>
 
                 <!-- Panel Body (Scrollable) -->
@@ -299,6 +302,28 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
     <script src="{{ url_for('static', filename='js/api.js') }}"></script>
     <script>
+        // ─── Toast notification (missing from public viewer) ──────────────────
+        (function() {
+            const container = document.createElement('div');
+            container.id = 'toast-container';
+            container.style.cssText = 'position:fixed;top:70px;right:12px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:340px;';
+            document.body.appendChild(container);
+        })();
+
+        function showToast(message, type = 'info') {
+            const colors = { success: '#16a34a', error: '#dc2626', warning: '#d97706', info: '#2563eb' };
+            const icons  = { success: '✓', error: '✕', warning: '⚠', info: 'ℹ' };
+            const toast = document.createElement('div');
+            toast.style.cssText = `background:${colors[type]||colors.info};color:#fff;padding:10px 14px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,0.18);display:flex;align-items:center;gap:8px;opacity:0;transform:translateX(40px);transition:all 0.3s ease;`;
+            toast.innerHTML = `<span style="font-size:15px;">${icons[type]||icons.info}</span><span>${message}</span>`;
+            document.getElementById('toast-container').appendChild(toast);
+            requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateX(0)'; });
+            setTimeout(() => {
+                toast.style.opacity = '0'; toast.style.transform = 'translateX(40px)';
+                setTimeout(() => toast.remove(), 400);
+            }, 4000);
+        }
+
         // Modal Help & Support Handlers
         document.addEventListener('DOMContentLoaded', () => {
             const btnHelp = document.getElementById('btn-help-support');
@@ -358,29 +383,46 @@
 
         // Mobile Filter Drawer Handlers
         let closeFilterDrawerGlobal = null;
+        let openFilterDrawerGlobal = null;
         
         document.addEventListener('DOMContentLoaded', () => {
             const btnToggle = document.getElementById('btn-toggle-filters');
             const btnClose = document.getElementById('btn-close-filters');
             const sidebar = document.getElementById('filter-sidebar');
             const overlay = document.getElementById('filter-overlay');
+            const btnMobileFab = document.getElementById('btn-mobile-fab');
+
+            // On desktop (md+), reset inline transform so sidebar is always shown
+            function resetForDesktop() {
+                if (window.innerWidth >= 768) {
+                    sidebar.style.transform = '';
+                }
+            }
+            resetForDesktop();
+            window.addEventListener('resize', resetForDesktop);
 
             function openFilterDrawer() {
-                sidebar.classList.remove('-translate-x-full');
-                sidebar.classList.add('translate-x-0');
+                sidebar.style.transform = 'translateY(0)';
                 overlay.classList.remove('hidden');
+                if (btnMobileFab) btnMobileFab.style.opacity = '0';
+                if (btnMobileFab) btnMobileFab.style.pointerEvents = 'none';
             }
 
             function closeFilterDrawer() {
-                sidebar.classList.add('-translate-x-full');
-                sidebar.classList.remove('translate-x-0');
+                sidebar.style.transform = 'translateY(120%)';
                 overlay.classList.add('hidden');
+                if (btnMobileFab) btnMobileFab.style.opacity = '1';
+                if (btnMobileFab) btnMobileFab.style.pointerEvents = 'auto';
             }
             
             closeFilterDrawerGlobal = closeFilterDrawer;
+            openFilterDrawerGlobal = openFilterDrawer;
 
             if (btnToggle) {
                 btnToggle.addEventListener('click', openFilterDrawer);
+            }
+            if (btnMobileFab) {
+                btnMobileFab.addEventListener('click', openFilterDrawer);
             }
             if (btnClose) {
                 btnClose.addEventListener('click', closeFilterDrawer);
@@ -445,14 +487,21 @@
                 // Add India boundary mask
                 addIndiaMask(map);
 
-                // Basemap switcher
-                document.querySelectorAll('input[name="basemap"]').forEach(radio => {
-                    radio.addEventListener('change', function() {
-                        if (baseLayers[this.value] && this.value !== currentBaseLayer) {
+                // Basemap switcher (button-based pill tabs)
+                document.querySelectorAll('.basemap-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const val = this.dataset.basemap;
+                        if (baseLayers[val] && val !== currentBaseLayer) {
                             map.removeLayer(baseLayers[currentBaseLayer]);
-                            baseLayers[this.value].addTo(map);
-                            currentBaseLayer = this.value;
+                            baseLayers[val].addTo(map);
+                            currentBaseLayer = val;
                         }
+                        document.querySelectorAll('.basemap-btn').forEach(b => {
+                            b.classList.remove('active-basemap');
+                            b.classList.add('text-gray-500');
+                        });
+                        this.classList.add('active-basemap');
+                        this.classList.remove('text-gray-500');
                     });
                 });
 
@@ -463,6 +512,7 @@
                         coordsEl.textContent = `Lat: ${e.latlng.lat.toFixed(5)}, Lng: ${e.latlng.lng.toFixed(5)}`;
                     }
                 });
+
 
                 mapInitialized = true;
                 console.log('Map initialized with region lock');
@@ -691,6 +741,7 @@
                         <div><p class="text-xs text-gray-500">Share</p><p class="font-semibold">${owner.share_pct || 'N/A'}%</p></div>
                     </div>
                     <p class="text-xs text-gray-400 mt-2 italic">Full details available to authorized officials only</p>
+                    <p class="text-xs text-gray-400 mt-2 italic">Full details available to authorized administrators only</p>
                 </div>
             `;
 
@@ -711,44 +762,46 @@
             return parts[0] + ' ' + parts.slice(1).map(p => p[0] + '.').join(' ');
         }
 
-        async function printCard(ulpin) {
-            if (!ulpin) {
-                showToast('No ULPIN available', 'error');
-                return;
-            }
+        async function capturePolygonMapForPdf(geometry) {
+            return new Promise((resolve) => {
+                const W = 800, H = 450;
+                const wrap = document.createElement('div');
+                wrap.style.cssText = `position:fixed;left:0;top:0;width:${W}px;height:${H}px;z-index:99999;opacity:0.01;pointer-events:none;`;
+                document.body.appendChild(wrap);
+                const pdfMap = L.map(wrap, { zoomControl: false, attributionControl: false });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(pdfMap);
+                if (geometry && geometry.coordinates && geometry.coordinates[0]) {
+                    const latlngs = geometry.coordinates[0].map(c => [c[1], c[0]]);
+                    const poly = L.polygon(latlngs, { color: '#dc2626', weight: 3, fillColor: '#fca5a5', fillOpacity: 0.35 }).addTo(pdfMap);
+                    pdfMap.fitBounds(poly.getBounds(), { padding: [55, 55] });
+                } else {
+                    pdfMap.setView([23.5, 77.5], 5);
+                }
+                setTimeout(async () => {
+                    try {
+                        wrap.style.opacity = '1';
+                        const dataUrl = await window.htmlToImage.toPng(wrap, { pixelRatio: 1.5, width: W, height: H });
+                        resolve(dataUrl);
+                    } catch (e) { resolve(null); }
+                    finally {
+                        try { pdfMap.remove(); } catch (_) {}
+                        try { document.body.removeChild(wrap); } catch (_) {}
+                    }
+                }, 2500);
+            });
+        }
 
-            showToast('Generating PDF property card with map...', 'info');
+        async function printCard(ulpin) {
+            if (!ulpin) { showToast('No ULPIN available', 'error'); return; }
+            showToast('Generating PDF — capturing map, please wait...', 'info');
+
+            // Get geometry of the currently open parcel
+            const currentRecord = allRecords.find(r => r.ulpin === ulpin);
+            const geometry = currentRecord && currentRecord.geometry;
 
             let mapImageBase64 = null;
-            const mapDiv = document.getElementById('map');
-            
-            // Capture map image if available
-            if (mapDiv && typeof window.htmlToImage !== 'undefined' && mapInitialized) {
-                try {
-                    // Temporarily hide the details panel for cleaner screenshot
-                    const panel = document.getElementById('parcel-panel');
-                    const panelVisible = panel.classList.contains('translate-x-0');
-                    if (panelVisible) {
-                        panel.classList.remove('translate-x-0');
-                        panel.classList.add('translate-x-full');
-                    }
-
-                    // Wait for panel to hide
-                    await new Promise(resolve => setTimeout(resolve, 100));
-
-                    mapImageBase64 = await window.htmlToImage.toPng(mapDiv, {
-                        pixelRatio: 1,
-                        backgroundColor: '#ffffff'
-                    });
-
-                    // Show panel again if it was visible
-                    if (panelVisible) {
-                        panel.classList.remove('translate-x-full');
-                        panel.classList.add('translate-x-0');
-                    }
-                } catch (err) {
-                    console.warn("Failed to capture map image:", err);
-                }
+            if (geometry && typeof window.htmlToImage !== 'undefined') {
+                mapImageBase64 = await capturePolygonMapForPdf(geometry);
             }
 
             try {
@@ -757,19 +810,15 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ map_image: mapImageBase64 })
                 });
-
                 if (!res.ok) {
                     const err = await res.json();
                     throw new Error(err.error || 'Failed to generate');
                 }
-
                 const blob = await res.blob();
                 const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
-                a.download = `Property_Card_${ulpin}.pdf`;
-                document.body.appendChild(a);
-                a.click();
+                a.href = url; a.download = `Property_Card_${ulpin}.pdf`;
+                document.body.appendChild(a); a.click();
                 document.body.removeChild(a);
                 window.URL.revokeObjectURL(url);
                 showToast('PDF downloaded successfully!', 'success');
@@ -782,28 +831,71 @@
         async function loadRecords() {
             try {
                 const loadingEl = document.getElementById('map-loading');
-                loadingEl.classList.remove('hidden');
+                if (loadingEl) loadingEl.classList.remove('hidden');
 
-                allRecords = await fetchRecords();
+                // Try api.js fetchRecords, fall back to direct fetch
+                let records = [];
+                try {
+                    records = await fetchRecords();
+                } catch (e) {
+                    console.warn('fetchRecords failed, trying direct fetch:', e);
+                    const res = await fetch('/api/records', { credentials: 'include' });
+                    if (res.ok) records = await res.json();
+                }
+
+                allRecords = Array.isArray(records) ? records : [];
+                console.log('Loaded', allRecords.length, 'records');
                 buildFilterOptions(allRecords);
                 applyFilters();
 
-                loadingEl.classList.add('hidden');
+                if (loadingEl) loadingEl.classList.add('hidden');
             } catch (err) {
                 console.error('Failed to load records:', err);
-                showToast('Failed to load records.', 'error');
-                document.getElementById('map-loading').classList.add('hidden');
+                showToast('Failed to load records: ' + err.message, 'error');
+                const loadingEl = document.getElementById('map-loading');
+                if (loadingEl) loadingEl.classList.add('hidden');
             }
         }
 
-        function buildFilterOptions(records) {
-            const states = [...new Set(records.map(r => (r.location || {}).state || '').filter(Boolean))].sort();
-            const districts = [...new Set(records.map(r => (r.location || {}).district || '').filter(Boolean))].sort();
-            const villages = [...new Set(records.map(r => (r.location || {}).village || '').filter(Boolean))].sort();
+        // Cascading filter helpers
+        function getUniqueFromRecords(records, field) {
+            return [...new Set(records.map(r => (r.location || {})[field] || '').filter(Boolean))].sort();
+        }
 
+        function buildFilterOptions(records) {
+            // Populate states from all records
+            const states = getUniqueFromRecords(records, 'state');
             populateSelect('filter-state', states, 'All States');
+
+            // Districts and villages default to all (no state selected yet)
+            updateDistrictOptions();
+            updateVillageOptions();
+        }
+
+        function updateDistrictOptions() {
+            const stateVal = document.getElementById('filter-state').value;
+            const source = stateVal
+                ? allRecords.filter(r => (r.location || {}).state === stateVal)
+                : allRecords;
+            const districts = getUniqueFromRecords(source, 'district');
+            const districtEl = document.getElementById('filter-district');
+            const currentDistrict = districtEl.value;
             populateSelect('filter-district', districts, 'All Districts');
+            // Re-select if still valid
+            if (districts.includes(currentDistrict)) districtEl.value = currentDistrict;
+        }
+
+        function updateVillageOptions() {
+            const stateVal = document.getElementById('filter-state').value;
+            const districtVal = document.getElementById('filter-district').value;
+            let source = allRecords;
+            if (stateVal) source = source.filter(r => (r.location || {}).state === stateVal);
+            if (districtVal) source = source.filter(r => (r.location || {}).district === districtVal);
+            const villages = getUniqueFromRecords(source, 'village');
+            const villageEl = document.getElementById('filter-village');
+            const currentVillage = villageEl.value;
             populateSelect('filter-village', villages, 'All Villages');
+            if (villages.includes(currentVillage)) villageEl.value = currentVillage;
         }
 
         function populateSelect(id, values, placeholder) {
@@ -817,6 +909,16 @@
                 el.appendChild(opt);
             });
         }
+
+        // Wire up cascading: state changes → update districts + villages
+        document.getElementById('filter-state').addEventListener('change', function() {
+            updateDistrictOptions();
+            updateVillageOptions();
+        });
+        // District changes → update villages only
+        document.getElementById('filter-district').addEventListener('change', function() {
+            updateVillageOptions();
+        });
 
         function applyFilters() {
             const stateVal = document.getElementById('filter-state').value;
@@ -869,6 +971,33 @@
         document.getElementById('search-input').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') applyFilters();
         });
+
+
+        // Compact layer switcher is always visible — no toggle needed
+
+        // Mobile legend toggle
+        (function() {
+            const btn   = document.getElementById('btn-legend-mobile');
+            const panel = document.getElementById('legend-mobile-panel');
+            const close = document.getElementById('btn-legend-mobile-close');
+            if (!btn || !panel) return;
+
+            let open = false;
+            function showLegend() {
+                open = true;
+                panel.style.transform = 'translateY(0)';
+                panel.style.opacity = '1';
+                panel.style.pointerEvents = 'auto';
+            }
+            function hideLegend() {
+                open = false;
+                panel.style.transform = 'translateY(20px)';
+                panel.style.opacity = '0';
+                panel.style.pointerEvents = 'none';
+            }
+            btn.addEventListener('click', () => open ? hideLegend() : showLegend());
+            if (close) close.addEventListener('click', hideLegend);
+        })();
 
         // Close parcel panel
         document.getElementById('parcel-close').addEventListener('click', function() {

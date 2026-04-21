@@ -1,0 +1,5 @@
+pytest>=7.0
+flask>=3.0
+pymongo>=4.0
+certifi
+python-dotenv

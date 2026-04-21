@@ -14,14 +14,7 @@ import subprocess
 import threading
 import time
 
-
-def resource_path(relative_path):
-    """Get absolute path to resource, works for dev and for PyInstaller."""
-    try:
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-    return os.path.join(base_path, relative_path)
+from utils import resource_path
 
 
 def start_flask():
@@ -85,10 +78,21 @@ def build_exe():
         '--onefile',
         '--windowed',  # No console window on Windows
         '--clean',
+    ]
 
+    # Add icon if available
+    icon_path = os.path.join(project_dir, 'logo.ico')
+    if os.path.exists(icon_path):
+        pyinstaller_args.append('--icon=' + icon_path)
+        print('Using icon: ' + icon_path)
+    else:
+        print('Warning: Icon file not found at ' + icon_path + ". Please place a 'logo.ico' in the project root to include an icon.")
+
+    pyinstaller_args.extend([
         # Add data files (templates, static)
-        f'--add-data={os.path.join(project_dir, "templates")}{os.pathsep}templates',
-        f'--add-data={os.path.join(project_dir, "static")}{os.pathsep}static',
+        '--add-data=' + os.path.join(project_dir, 'templates') + os.pathsep + 'templates',
+        '--add-data=' + os.path.join(project_dir, 'static') + os.pathsep + 'static',
+        '--add-data=' + os.path.join(project_dir, '.env') + os.pathsep + '.',
 
         # Hidden imports that PyInstaller might miss
         '--hidden-import=flask',
@@ -110,28 +114,28 @@ def build_exe():
 
         # Main entry point
         os.path.join(project_dir, 'app.py')
-    ]
+    ])
 
-    print("=" * 60)
-    print("  Building India LIMS .exe with PyInstaller")
-    print("=" * 60)
-    print(f"\nCommand: {' '.join(pyinstaller_args)}\n")
+    print('=' * 60)
+    print('  Building India LIMS .exe with PyInstaller')
+    print('=' * 60)
+    print('\nCommand: ' + ' '.join(pyinstaller_args) + '\n')
 
     result = subprocess.run(pyinstaller_args, cwd=project_dir)
 
     if result.returncode == 0:
-        print("\n" + "=" * 60)
-        print("  BUILD SUCCESSFUL!")
-        print(f"  Executable: {os.path.join(project_dir, 'dist', 'IndiaLIMS.exe')}")
-        print("=" * 60)
+        print('\n' + '=' * 60)
+        print('  BUILD SUCCESSFUL!')
+        print('  Executable: ' + os.path.join(project_dir, 'dist', 'IndiaLIMS.exe'))
+        print('=' * 60)
     else:
-        print("\n" + "=" * 60)
-        print("  BUILD FAILED!")
-        print("=" * 60)
+        print('\n' + '=' * 60)
+        print('  BUILD FAILED!')
+        print('=' * 60)
         sys.exit(1)
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     if len(sys.argv) > 1 and sys.argv[1] == '--run':
         # Run in PyWebView window for testing
         run_pywebview()

@@ -9,14 +9,15 @@ A GIS-based land records management web application built with **Flask (Python)*
 - Dashboard analytics aggregation with `/api/dashboard`
 - Location catalog generation with `/api/location-catalog`
 - Spatial calculations (Shapely) via `gis_processor.py`
-- PDF/Excel document generation via `report_generator.py`
+- Single-page PDF & Excel document generation via `report_generator.py` (using `fpdf2` and `pandas`)
 - Authentication & session management
 
 **Frontend focuses on:**
 - Interactive Leaflet maps with Geoman drawing
+- Off-screen fixed-size map captures for consistent PDF generation
 - Tab-based UI (Records, Map View, Add Record, Dashboard)
-- Real-time form validation
-- Responsive design
+- Cascading filters for hierarchical location data
+- Responsive design with tailored mobile/desktop map controls
 
 ## Project Structure
 
@@ -68,9 +69,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-### Default Credentials
-- **Username:** admin
-- **Password:** password123
+
 
 ## API Endpoints
 
@@ -116,18 +115,27 @@ python app.py
 
 Environment variables:
 ```bash
+MONGO_URI=mongodb+srv://<username>:<password>@cluster...
 LIMS_SECRET_KEY=your-secret-key
 LIMS_DEBUG=true
 LIMS_HOST=0.0.0.0
 LIMS_PORT=5000
 ```
 
-## Building Executable
+## Building Executable & Installer
 
+### 1. Compile the Standalone Executable
 ```bash
 python build_exe.py
 ```
-Output: `dist/IndiaLIMS.exe`
+This uses PyInstaller to bundle the app into a single `.exe` file located at `dist/IndiaLIMS.exe`.
+
+### 2. Create the Windows Installer
+To create a complete Windows setup wizard that handles shortcuts and desktop icons:
+1. Install [Inno Setup](https://jrsoftware.org/isinfo.php).
+2. Open `inno_setup.iss` in the Inno Setup Compiler.
+3. Click **Compile**.
+4. The final installer will be generated in the `installer_output/` folder as `IndiaLIMS_Setup.exe`.
 
 ## Web Deployment (e.g. Render)
 
@@ -160,10 +168,11 @@ You can keep the app awake using UptimeRobot or similar services by pinging the 
 - **Dashboard tab** - Server-computed KPIs, land use distribution, district overview
 
 ### Public Viewer
-- Read-only access via  CAPTCHA
-- Server-side filter dropdowns (State, District, Village, Land Type)
+- Read-only access via CAPTCHA
+- Cascading filter dropdowns (State -> District -> Village)
 - Text search across Khasra, ULPIN, Plot No
 - Masked owner information
+- Responsive mobile legend panel and compact layer switcher
 
 ## License
 

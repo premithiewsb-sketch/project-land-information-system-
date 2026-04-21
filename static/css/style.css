@@ -735,26 +735,6 @@ input[readonly] {
         padding-right: 0.75rem;
     }
     
-    /* Make sidebar slightly smaller */
-    .w-56 {
-        width: 48px;
-    }
-    
-    .main-tab-btn span,
-    #btn-logout span {
-        display: none;
-    }
-
-    .main-tab-btn {
-        padding: 0.75rem;
-        justify-content: center;
-    }
-    
-    #btn-logout {
-        padding: 0.75rem;
-        justify-content: center;
-    }
-    
     /* Adjust search input width */
     #search-input {
         width: 12rem !important;
@@ -767,7 +747,12 @@ input[readonly] {
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1024px) and (min-width: 768px) {
+    /* Make sidebar slightly smaller on tablet only */
+    .w-56 {
+        width: 64px !important;
+    }
+    
     .main-tab-btn span,
     #btn-logout span {
         display: none;
@@ -782,7 +767,9 @@ input[readonly] {
         padding: 0.75rem;
         justify-content: center;
     }
-    
+}
+
+@media (max-width: 768px) {
     /* Stack dashboard cards on mobile */
     #main-tab-dashboard .grid {
         grid-template-columns: 1fr !important;
@@ -837,9 +824,5 @@ input[readonly] {
     /* Ensure overlay is clickable */
     #filter-overlay {
         z-index: 35;
-    }
-
-    .main-tab-btn span {
-        display: inline !important;
     }
 }

@@ -10,14 +10,13 @@ const FETCH_OPTS = {
     credentials: 'include'
 };
 
-// ─── Authentication Endpoints ────────────────────────────────────────────────
-
-async function verifyCaptcha(answer) {
+// --- Authentication Endpoints ---
+async function verifyCaptcha(answer, token) {
     const res = await fetch(`${API_BASE}/api/verify-captcha`, {
         ...FETCH_OPTS,
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ answer: answer })
+        body: JSON.stringify({ answer: answer, token: token })
     });
     return res.json();
 }
@@ -57,8 +56,7 @@ async function getSessionInfo() {
     return res.json();
 }
 
-// ─── Records Endpoints ───────────────────────────────────────────────────────
-
+// --- Records Endpoints ---
 async function fetchRecords() {
     const res = await fetch(`${API_BASE}/api/records`, {
         ...FETCH_OPTS,
@@ -135,8 +133,7 @@ async function deleteRecord(recordId) {
     return res.json();
 }
 
-// ─── GIS Processing Endpoints ────────────────────────────────────────────────
-
+// --- GIS Processing Endpoints ---
 async function calculateArea(geometry) {
     const res = await fetch(`${API_BASE}/api/calculate-area`, {
         ...FETCH_OPTS,
@@ -179,8 +176,7 @@ async function fetchLocationFromCoordinates(lat, lng) {
     return res.json();
 }
 
-// ─── Server-Side Filtering & Analytics (Python-heavy) ────────────────────────
-
+// --- Server-Side Filtering & Analytics (Python-heavy) ---
 /**
  * Server-side filtering of records.
  * @param {Object} filters - { state, district, village, land_use, search }
@@ -261,8 +257,7 @@ async function fetchAppConfig() {
     return res.json();
 }
 
-// ─── Document Generation Endpoints ───────────────────────────────────────────
-
+// --- Document Generation Endpoints ---
 function getPropertyCardUrl(ulpin) {
     return `${API_BASE}/api/print-card/${ulpin}`;
 }
@@ -281,8 +276,7 @@ function downloadFile(url, filename) {
     document.body.removeChild(a);
 }
 
-// ─── Utility ─────────────────────────────────────────────────────────────────
-
+// --- Utility ---
 function showToast(message, type = 'info', duration = 3000) {
     const toast = document.getElementById('toast');
     const msgEl = document.getElementById('toast-msg');
@@ -309,7 +303,7 @@ function showToast(message, type = 'info', duration = 3000) {
     }, duration);
 }
 
-// ─── Real-Time Clock ──────────────────────────────────────────────
+// --- Real-Time Clock ---
 function updateRealTimeClock() {
     const timeEl = document.getElementById('rtc-time');
     const dateEl = document.getElementById('rtc-date');

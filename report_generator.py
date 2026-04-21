@@ -1,13 +1,15 @@
 """
 report_generator.py - Document Generation Module for India LIMS
-Generates official PDF Property Cards and Excel Village Ledgers.
+Generates single-page PDF Property Cards and Excel Village Ledgers.
 """
 
 import os
-import sys
 import io
 import json
 import uuid
+import struct
+import base64
+import tempfile
 from datetime import datetime
 
 from utils import resource_path
@@ -27,367 +29,336 @@ try:
 except ImportError:
     qrcode = None
 
+# ── Unit Conversion Constants ─────────────────────────────────────────────────
+HA_TO_ACRE        = 2.47105
+HA_TO_BIGHA_ASSAM = 7.4752    # 1 Assam Bigha = 14,400 sq ft
+HA_TO_LECHA_ASSAM = 747.52    # 1 Lecha = 1/100 Assam Bigha
+
+
+def _fmt_inr(value):
+    """Format a number as Indian Rupees with commas."""
+    try:
+        v = int(float(value))
+        s = str(v)
+        if len(s) > 3:
+            last3 = s[-3:]
+            rest = s[:-3]
+            parts = []
+            while len(rest) > 2:
+                parts.append(rest[-2:])
+                rest = rest[:-2]
+            if rest:
+                parts.append(rest)
+            parts.reverse()
+            return ','.join(parts) + ',' + last3
+        return s
+    except Exception:
+        return str(value)
+
 
 def generate_property_card_pdf(record, map_image_base64=None):
     """
-    Generate an official A4-sized PDF Property Card (Khasra Document) for a land record.
+    Generate a clean, single-page A4 PDF Property Card.
 
-    The PDF includes:
-    - Government of India header
-    - QR code with ULPIN
-    - Property Details table (ULPIN, Khasra No, Area, Land Use, Circle Rate)
-    - Ownership Details table (Name, Share, Aadhaar Mask)
-    - Mutation History table (if any)
-    - Generation timestamp and digital signature placeholder
-
-    Args:
-        record: A land record dictionary with all fields.
-
-    Returns:
-        bytes: PDF file content as bytes, or None on failure.
+    Layout (all on one page):
+      • Header with QR code
+      • 2-column property info table
+      • Prominent map section (90mm)
+      • Polygon coordinates table
+      • Footer
     """
     if FPDF is None:
-        raise ImportError("fpdf2 library is required. Install with: pip install fpdf2")
+        raise ImportError("fpdf2 is required. Install with: pip install fpdf2")
 
     pdf = PropertyCardPDF()
-    pdf.set_auto_page_break(auto=True, margin=20)
-
-    # ─── Page 1: Property Card ───────────────────────────────────────────
+    pdf.set_auto_page_break(auto=False)   # We handle layout manually
     pdf.add_page()
 
-    # Generate QR Code
-    qr_img = None
+    # ── Extract Data ─────────────────────────────────────────────────────────
+    loc      = record.get("location", {})
+    attrs    = record.get("attributes", {})
+    owner    = record.get("owner", {})
+    mutations = record.get("mutation_history", [])
+    geometry = record.get("geometry", {})
+
+    area_ha    = float(attrs.get("area_ha", 0) or 0)
+    area_acres = round(area_ha * HA_TO_ACRE, 2)
+    area_bigha = round(area_ha * HA_TO_BIGHA_ASSAM, 2)
+    area_lecha = int(round(area_ha * HA_TO_LECHA_ASSAM))
+
+    try:
+        circle_rate     = float(attrs.get("circle_rate_inr", 0) or 0)
+        estimated_value = area_ha * circle_rate
+    except Exception:
+        circle_rate = 0
+        estimated_value = 0
+
+    state    = loc.get("state",    "N/A")
+    district = loc.get("district", "N/A")
+    village  = loc.get("village",  "N/A")
+
+    # ── QR Code (top-right) ──────────────────────────────────────────────────
+    qr_path = None
     if qrcode is not None:
         try:
             qr = qrcode.QRCode(version=1, box_size=4, border=1)
             qr.add_data(record.get("ulpin", "N/A"))
             qr.make(fit=True)
             qr_img = qr.make_image(fill_color="black", back_color="white")
-        except Exception:
-            qr_img = None
-
-    # Save QR code to a temporary buffer and place it
-    if qr_img is not None:
-        try:
-            qr_buffer = io.BytesIO()
-            qr_img.save(qr_buffer, format="PNG")
-            qr_buffer.seek(0)
-            # Save to temp file with unique name for FPDF
-            import uuid
-            temp_qr_path = os.path.join(os.path.dirname(__file__), f"temp_qr_{uuid.uuid4().hex[:8]}.png")
-            with open(temp_qr_path, "wb") as f:
-                f.write(qr_buffer.getvalue())
-            pdf.image(temp_qr_path, x=170, y=12, w=25, h=25)
-            # Clean up temp file
-            try:
-                os.remove(temp_qr_path)
-            except Exception:
-                pass
+            buf = io.BytesIO()
+            qr_img.save(buf, format="PNG")
+            buf.seek(0)
+            qr_path = os.path.join(tempfile.gettempdir(), f"qr_{uuid.uuid4().hex[:8]}.png")
+            with open(qr_path, "wb") as f:
+                f.write(buf.getvalue())
+            pdf.image(qr_path, x=183, y=10, w=18, h=18)
         except Exception:
             pass
 
-    # ─── Header Section ──────────────────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.cell(0, 8, "Government of India", ln=True, align="C")
-    pdf.set_font("Helvetica", "B", 13)
-    pdf.cell(0, 7, "Department of Revenue - Land Records", ln=True, align="C")
-    pdf.set_font("Helvetica", "", 10)
-    pdf.cell(0, 6, "Ministry of Rural Development", ln=True, align="C")
+    # ── Header ───────────────────────────────────────────────────────────────
+    pdf.set_y(10)
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.cell(170, 7, "India LIMS - Property Card (Khasra Patta)", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.set_font("Helvetica", "", 8)
+    pdf.cell(170, 4, "Land Information Management System | Academic Prototype", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.cell(170, 5, f"{village}, {district}, {state}", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.ln(1)
+
+    pdf.set_draw_color(30, 64, 150)
+    pdf.set_line_width(0.6)
+    y_div = pdf.get_y()
+    pdf.line(10, y_div, 200, y_div)
     pdf.ln(3)
 
-    # State/District/Village line
-    loc = record.get("location", {})
-    location_str = f"{loc.get('village', 'N/A')}, {loc.get('district', 'N/A')}, {loc.get('state', 'N/A')}"
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.cell(0, 7, f"Property Card - {location_str}", ln=True, align="C")
-    pdf.ln(4)
+    # ── Two-Column Info Table ────────────────────────────────────────────────
+    Y_TABLE = pdf.get_y()
+    RH = 6.5          # row height mm
+    LW = 38           # label cell width
+    VW = 54           # value cell width  (total col = 92mm)
+    GAP = 6           # gap between cols
 
-    # Horizontal rule
-    pdf.set_draw_color(0, 0, 0)
-    pdf.set_line_width(0.5)
-    pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(4)
+    def draw_row(x, y, label, value, fill=True):
+        pdf.set_xy(x, y)
+        pdf.set_font("Helvetica", "B", 7.5)
+        pdf.set_fill_color(230, 237, 255)
+        pdf.cell(LW, RH, f"  {label}", border=1, fill=fill)
+        pdf.set_font("Helvetica", "", 7.5)
+        pdf.set_fill_color(255, 255, 255)
+        val_str = str(value)[:42]
+        pdf.cell(VW, RH, f"  {val_str}", border=1, fill=True, new_x="RIGHT", new_y="TOP")
 
-    # ─── Table 1: Property Details ───────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "PROPERTY DETAILS", ln=True)
-    pdf.ln(2)
-
-    attrs = record.get("attributes", {})
-    prop_data = [
-        ["ULPIN", record.get("ulpin", "N/A")],
-        ["Khasra No.", record.get("khasra_no", "N/A")],
-        ["Khata No.", record.get("khata_no", "N/A")],
-        ["Area (Hectares)", str(attrs.get("area_ha", "N/A"))],
-        ["Land Use", attrs.get("land_use", "N/A")],
-        ["Circle Rate (INR/ha)", f"Rs. {attrs.get('circle_rate_inr', 'N/A'):,}" if isinstance(attrs.get('circle_rate_inr'), (int, float)) else "N/A"],
-        ["Location", location_str],
+    left = [
+        ("ULPIN",        record.get("ulpin", "N/A")),
+        ("Khasra No.",   record.get("khasra_no", "N/A")),
+        ("Khata No.",    record.get("khata_no", "N/A")),
+        ("Land Use",     attrs.get("land_use", "N/A")),
+        ("State",        state),
+        ("District",     district),
+        ("Village/Ward", village),
+    ]
+    right = [
+        ("Area (Ha)",    f"{area_ha} Ha"),
+        ("Area (Acres)", f"{area_acres} Ac"),
+        ("Area (Bigha)", f"{area_bigha} Bigha (Assam)"),
+        ("Area (Lecha)", f"{area_lecha} Lecha (Assam)"),
+        ("Circle Rate",  f"Rs. {_fmt_inr(int(circle_rate))}/Ha" if circle_rate else "N/A"),
+        ("Est. Value",   f"Rs. {_fmt_inr(int(estimated_value))}" if estimated_value else "N/A"),
+        ("Owner",        owner.get("name", "N/A")),
     ]
 
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.set_fill_color(220, 230, 241)
-    pdf.cell(65, 8, " Field ", border=1, fill=True)
-    pdf.cell(125, 8, " Value ", border=1, fill=True, ln=True)
+    for i, (lbl, val) in enumerate(left):
+        draw_row(10, Y_TABLE + i * RH, lbl, val)
+    for i, (lbl, val) in enumerate(right):
+        draw_row(10 + LW + VW + GAP, Y_TABLE + i * RH, lbl, val)
 
-    pdf.set_font("Helvetica", "", 10)
-    for field, value in prop_data:
-        pdf.cell(65, 7, f" {field}", border=1)
-        pdf.cell(125, 7, f" {value}", border=1, ln=True)
+    # One extra row: Share % and Mutations
+    y_extra = Y_TABLE + 7 * RH
+    draw_row(10, y_extra, "Share (%)", f"{owner.get('share_pct', 'N/A')}%")
+    draw_row(10 + LW + VW + GAP, y_extra, "Mutations", f"{len(mutations)} on record")
 
-    pdf.ln(6)
+    pdf.ln(0)
+    y_after_table = y_extra + RH + 3
 
-    # ─── Table 2: Ownership Details ──────────────────────────────────────
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "OWNERSHIP DETAILS", ln=True)
-    pdf.ln(2)
+    # ── Divider ───────────────────────────────────────────────────────────────
+    pdf.set_draw_color(30, 64, 150)
+    pdf.set_line_width(0.4)
+    pdf.line(10, y_after_table, 200, y_after_table)
 
-    owner = record.get("owner", {})
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.set_fill_color(220, 230, 241)
-    pdf.cell(65, 8, " Field ", border=1, fill=True)
-    pdf.cell(125, 8, " Value ", border=1, fill=True, ln=True)
+    # ── Map Section ───────────────────────────────────────────────────────────
+    MAP_LABEL_Y = y_after_table + 2
+    MAP_Y       = MAP_LABEL_Y + 6
+    MAP_H       = 118   # mm — generous height now that coords table is removed
 
-    pdf.set_font("Helvetica", "", 10)
-    owner_data = [
-        ["Owner Name", owner.get("name", "N/A")],
-        ["Share (%)", f"{owner.get('share_pct', 'N/A')}%"],
-        ["Aadhaar (Masked)", owner.get("aadhaar_mask", "N/A")],
-    ]
-    for field, value in owner_data:
-        pdf.cell(65, 7, f" {field}", border=1)
-        pdf.cell(125, 7, f" {value}", border=1, ln=True)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_xy(10, MAP_LABEL_Y)
+    pdf.cell(0, 5, "PARCEL MAP", new_x="LMARGIN", new_y="NEXT")
 
-    pdf.ln(6)
-
-    # ─── Table 3: Mutation History ───────────────────────────────────────
-    mutations = record.get("mutation_history", [])
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.cell(0, 8, "MUTATION HISTORY", ln=True)
-    pdf.ln(2)
-
-    if mutations:
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_fill_color(220, 230, 241)
-        col_widths = [38, 25, 30, 30, 30, 37]
-        headers = ["Prev. Owner", "Share %", "Mutation Date", "Type", "Reference", "Remarks"]
-        for i, h in enumerate(headers):
-            pdf.cell(col_widths[i], 7, f" {h}", border=1, fill=True)
-        pdf.ln()
-
-        pdf.set_font("Helvetica", "", 9)
-        for mut in mutations:
-            pdf.cell(col_widths[0], 6, f" {mut.get('previous_owner', 'N/A')}", border=1)
-            pdf.cell(col_widths[1], 6, f" {mut.get('previous_share_pct', 'N/A')}%", border=1)
-            pdf.cell(col_widths[2], 6, f" {mut.get('mutation_date', 'N/A')}", border=1)
-            pdf.cell(col_widths[3], 6, f" {mut.get('mutation_type', 'N/A')}", border=1)
-            pdf.cell(col_widths[4], 6, f" {mut.get('mutation_ref', 'N/A')}", border=1)
-            pdf.cell(col_widths[5], 6, " -", border=1)
-            pdf.ln()
-    else:
-        pdf.set_font("Helvetica", "I", 10)
-        pdf.cell(0, 7, "No mutation records on file.", ln=True)
-
-    pdf.ln(8)
-
-    # ─── Property Map ────────────────────────────────────────────────────
     if map_image_base64:
-        # Check remaining space, if less than 80mm, add a new page
-        remaining_space = 277 - pdf.get_y()  # 297 (A4 height) - 20 (bottom margin)
-        if remaining_space < 80:
-            pdf.add_page()
-            pdf.set_y(15)  # Start from top with small margin
-
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 8, "PROPERTY MAP", ln=True)
-        pdf.ln(2)
-
-        import base64
-        import tempfile
-        import struct
         try:
-            # Decode base64 (remove data:image/png;base64, prefix if exists)
             if "," in map_image_base64:
                 map_image_base64 = map_image_base64.split(",")[1]
             img_data = base64.b64decode(map_image_base64)
 
-            temp_map_path = os.path.join(tempfile.gettempdir(), f"map_{record.get('ulpin')}_{uuid.uuid4().hex[:8]}.png")
-            with open(temp_map_path, "wb") as f:
+            tmp_map = os.path.join(tempfile.gettempdir(), f"map_{record.get('ulpin','x')}_{uuid.uuid4().hex[:6]}.png")
+            with open(tmp_map, "wb") as f:
                 f.write(img_data)
 
-            # Read PNG dimensions manually using struct (no external dependencies)
+            # Read actual PNG dimensions for proportional placement
+            img_w, img_h = 800, 450  # fallback defaults
             try:
-                with open(temp_map_path, 'rb') as f:
-                    # PNG signature is 8 bytes, then IHDR chunk
-                    f.read(8)  # Skip PNG signature
-                    # Read IHDR chunk (must be first chunk)
-                    chunk_data = f.read(17)  # 4 bytes length + 4 bytes type + 9 bytes data (width=4, height=4, etc)
-                    if len(chunk_data) == 17:
-                        img_width = struct.unpack('>I', chunk_data[8:12])[0]
-                        img_height = struct.unpack('>I', chunk_data[12:16])[0]
-                        
-                        # Calculate scaled dimensions to fit within page
-                        max_width = 170  # Leave 20mm margins on each side
-                        max_height = min(80, remaining_space - 10)  # Leave some space for footer
-                        
-                        # Scale proportionally
-                        scale = min(max_width / img_width, max_height / img_height)
-                        scaled_width = img_width * scale
-                        scaled_height = img_height * scale
-                        
-                        # Center the image
-                        x_pos = (210 - scaled_width) / 2
-                        pdf.image(temp_map_path, x=x_pos, w=scaled_width)
-                        pdf.ln(scaled_height + 3)
-                    else:
-                        # Fallback if can't read dimensions
-                        pdf.image(temp_map_path, x=20, w=170)
-                        pdf.ln(80)
-            except Exception:
-                # Fallback if PNG reading fails
-                pdf.image(temp_map_path, x=20, w=170)
-                pdf.ln(80)
-
-            try:
-                os.remove(temp_map_path)
+                with open(tmp_map, "rb") as f:
+                    f.read(8)
+                    chunk = f.read(17)
+                    if len(chunk) == 17:
+                        img_w = struct.unpack(">I", chunk[8:12])[0]
+                        img_h = struct.unpack(">I", chunk[12:16])[0]
             except Exception:
                 pass
+
+            # Scale to fill 190mm width, but cap at MAP_H height
+            max_w = 190.0
+            scale = min(max_w / img_w, MAP_H / (img_h * (210 / img_w)) if img_w else 1)
+            draw_w = min(max_w, img_w * (max_w / img_w))
+            draw_h = img_h * (draw_w / img_w)
+            if draw_h > MAP_H:
+                draw_h = MAP_H
+                draw_w = img_w * (draw_h / img_h)
+
+            x_pos = (210 - draw_w) / 2
+            pdf.image(tmp_map, x=x_pos, y=MAP_Y, w=draw_w, h=draw_h)
+
+            try:
+                os.remove(tmp_map)
+            except Exception:
+                pass
+
         except Exception as e:
-            pdf.set_font("Helvetica", "I", 10)
-            pdf.cell(0, 7, f"Error rendering map: {e}", ln=True)
+            pdf.set_font("Helvetica", "I", 9)
+            pdf.set_xy(10, MAP_Y + 5)
+            pdf.cell(0, 6, f"Map not available: {str(e)[:60]}", new_x="LMARGIN", new_y="NEXT")
+    else:
+        pdf.set_font("Helvetica", "I", 9)
+        pdf.set_xy(10, MAP_Y + 5)
+        pdf.cell(0, 6, "Map image not captured.", new_x="LMARGIN", new_y="NEXT")
 
-        pdf.ln(2)
+    y_after_map = MAP_Y + MAP_H + 3
 
-    # ─── Footer Section ──────────────────────────────────────────────────
-    pdf.set_draw_color(0, 0, 0)
+
+    # ── Footer ───────────────────────────────────────────────────────────────
+    pdf.set_y(281)   # 297 - 16mm from bottom
+    pdf.set_draw_color(30, 64, 150)
     pdf.set_line_width(0.3)
     pdf.line(10, pdf.get_y(), 200, pdf.get_y())
-    pdf.ln(4)
-
-    pdf.set_font("Helvetica", "I", 8)
+    pdf.ln(2)
     gen_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    pdf.cell(0, 5, f"Generated: {gen_time} | Document ID: PC-{record.get('ulpin', 'N/A')}-{datetime.now().strftime('%Y%m%d%H%M')}", ln=True)
+    pdf.set_font("Helvetica", "I", 7)
+    doc_id = f"PC-{record.get('ulpin','N/A')}-{datetime.now().strftime('%Y%m%d%H%M')}"
+    pdf.cell(0, 4, f"Generated: {gen_time}  |  Document ID: {doc_id}  |  India LIMS Academic Prototype", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.set_font("Helvetica", "B", 7)
+    pdf.cell(0, 4, "Computer-generated document. Scan QR code for digital verification.", new_x="LMARGIN", new_y="NEXT", align="C")
 
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.cell(0, 6, "This is a computer-generated document. No physical signature is required.", ln=True, align="C")
-    pdf.cell(0, 6, "For verification, scan the QR code or contact the local Revenue Office.", ln=True, align="C")
+    # Cleanup QR
+    if qr_path:
+        try:
+            os.remove(qr_path)
+        except Exception:
+            pass
 
-    # Output as bytes
+    # ── Output ────────────────────────────────────────────────────────────────
     try:
         return bytes(pdf.output())
     except Exception:
-        # fpdf2 returns bytes or bytearray depending on version
         output = pdf.output()
         if isinstance(output, (bytes, bytearray)):
             return bytes(output)
-        # If it returns a string (older fpdf), encode it
         return output.encode("latin-1") if isinstance(output, str) else bytes(output)
 
 
 class PropertyCardPDF(FPDF):
-    """Custom FPDF class for the Property Card with header/footer."""
+    """Custom FPDF with thin blue top border."""
 
     def header(self):
-        # Thin decorative line at the very top
-        self.set_draw_color(0, 51, 102)
-        self.set_line_width(1.0)
+        self.set_draw_color(30, 64, 150)
+        self.set_line_width(1.2)
         self.line(5, 5, 205, 5)
         self.set_line_width(0.3)
         self.set_draw_color(0, 0, 0)
 
     def footer(self):
-        self.set_y(-15)
-        self.set_font("Helvetica", "I", 8)
-        self.set_text_color(128, 128, 128)
-        self.cell(0, 10, f"India LIMS - Land Information Management System | Page {self.page_no()}/{{nb}}", align="C")
-        self.set_text_color(0, 0, 0)
+        pass   # Footer handled manually above
 
 
 def generate_village_excel(records, village_name="All Villages"):
     """
-    Generate a formatted Excel (.xlsx) village ledger from land records.
-
-    Flattens the nested JSON structure into a tabular format suitable for
-    government records and revenue audits.
-
-    Args:
-        records: List of land record dictionaries.
-        village_name: Name of the village for the sheet title.
-
-    Returns:
-        bytes: Excel file content as bytes, or None on failure.
+    Generate a formatted Excel village ledger from land records.
+    Includes Bigha and Lecha columns.
     """
     if pd is None:
-        raise ImportError("pandas library is required. Install with: pip install pandas openpyxl")
+        raise ImportError("pandas and openpyxl are required.")
 
-    # Flatten records into tabular format
     flat_rows = []
     for rec in records:
-        loc = rec.get("location", {})
+        loc   = rec.get("location", {})
         attrs = rec.get("attributes", {})
         owner = rec.get("owner", {})
-        mutations = rec.get("mutation_history", [])
-        mutation_count = len(mutations)
-        last_mutation = mutations[-1] if mutations else {}
+        muts  = rec.get("mutation_history", [])
+        last_mut = muts[-1] if muts else {}
 
+        area_ha = float(attrs.get("area_ha", 0) or 0)
         flat_rows.append({
-            "ULPIN": rec.get("ulpin", ""),
-            "Khasra No.": rec.get("khasra_no", ""),
-            "Khata No.": rec.get("khata_no", ""),
-            "State": loc.get("state", ""),
-            "District": loc.get("district", ""),
-            "Village": loc.get("village", ""),
-            "Area (Ha)": attrs.get("area_ha", 0),
-            "Land Use": attrs.get("land_use", ""),
-            "Circle Rate (INR)": attrs.get("circle_rate_inr", 0),
-            "Owner Name": owner.get("name", ""),
-            "Share (%)": owner.get("share_pct", 0),
-            "Aadhaar (Masked)": owner.get("aadhaar_mask", ""),
-            "Total Mutations": mutation_count,
-            "Last Mutation Date": last_mutation.get("mutation_date", ""),
-            "Last Mutation Type": last_mutation.get("mutation_type", ""),
-            "Record ID": rec.get("_id", ""),
+            "ULPIN":                   rec.get("ulpin", ""),
+            "Khasra No.":              rec.get("khasra_no", ""),
+            "Khata No.":               rec.get("khata_no", ""),
+            "State":                   loc.get("state", ""),
+            "District":                loc.get("district", ""),
+            "Village":                 loc.get("village", ""),
+            "Area (Ha)":               area_ha,
+            "Area (Bigha - Assam)":    round(area_ha * HA_TO_BIGHA_ASSAM, 2),
+            "Area (Lecha - Assam)":    int(round(area_ha * HA_TO_LECHA_ASSAM)),
+            "Area (Acres)":            round(area_ha * HA_TO_ACRE, 2),
+            "Land Use":                attrs.get("land_use", ""),
+            "Circle Rate (INR/Ha)":    attrs.get("circle_rate_inr", 0),
+            "Owner Name":              owner.get("name", ""),
+            "Share (%)":               owner.get("share_pct", 0),
+            "Aadhaar (Masked)":        owner.get("aadhaar_mask", ""),
+            "Total Mutations":         len(muts),
+            "Last Mutation Date":      last_mut.get("mutation_date", ""),
+            "Last Mutation Type":      last_mut.get("mutation_type", ""),
+            "Record ID":               rec.get("_id", ""),
         })
 
     df = pd.DataFrame(flat_rows)
-
-    # Write to Excel with formatting
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine="openpyxl") as writer:
         df.to_excel(writer, index=False, sheet_name="Village Ledger")
-
-        # Auto-adjust column widths
         try:
-            worksheet = writer.sheets["Village Ledger"]
+            ws = writer.sheets["Village Ledger"]
             for idx, col in enumerate(df.columns):
-                max_length = max(
+                max_len = max(
                     df[col].astype(str).map(len).max() if len(df) > 0 else 0,
                     len(col)
                 )
-                adjusted_width = min(max_length + 3, 40)
-                worksheet.column_dimensions[chr(65 + idx) if idx < 26 else chr(64 + idx // 26) + chr(65 + idx % 26)].width = adjusted_width
+                col_letter = chr(65 + idx) if idx < 26 else chr(64 + idx // 26) + chr(65 + idx % 26)
+                ws.column_dimensions[col_letter].width = min(max_len + 3, 40)
         except Exception:
-            pass  # Column width adjustment is best-effort
+            pass
 
     output.seek(0)
     return output.getvalue()
 
 
 if __name__ == "__main__":
-    # Quick test: generate a sample PDF
-    import sys
-    sys.path.insert(0, os.path.dirname(__file__))
-    sample_record = {
+    sample = {
         "_id": "test-001",
-        "ulpin": "23010203004005",
-        "khasra_no": "101/2/A",
-        "khata_no": "KH-88",
-        "location": {"state": "Madhya Pradesh", "district": "Bhopal", "village": "Berasia"},
-        "attributes": {"area_ha": 1.23, "land_use": "Agricultural", "circle_rate_inr": 45000},
-        "owner": {"name": "Ramesh Kumar Sharma", "share_pct": 100, "aadhaar_mask": "XXXX-XXXX-1234"},
+        "ulpin": "18011010001001",
+        "khasra_no": "42/B",
+        "khata_no": "KH-07",
+        "location": {"state": "Assam", "district": "Kamrup Metropolitan", "village": "Guwahati Ward 12"},
+        "attributes": {"area_ha": 1.34, "land_use": "Agricultural", "circle_rate_inr": 85000},
+        "owner": {"name": "Ramesh Kumar", "share_pct": 100, "aadhaar_mask": "XXXX-XXXX-7890"},
+        "geometry": {"type": "Polygon", "coordinates": [[[91.76, 26.12], [91.765, 26.12], [91.765, 26.125], [91.76, 26.125], [91.76, 26.12]]]},
         "mutation_history": []
     }
-    pdf_bytes = generate_property_card_pdf(sample_record)
-    if pdf_bytes:
-        print(f"Sample PDF generated: {len(pdf_bytes)} bytes")
-    else:
-        print("PDF generation failed.")
+    b = generate_property_card_pdf(sample)
+    print(f"PDF generated: {len(b)} bytes")
