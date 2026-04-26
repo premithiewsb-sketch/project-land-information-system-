@@ -87,8 +87,15 @@ def generate_property_card_pdf(record, map_image_base64=None):
     area_lecha = int(round(area_ha * HA_TO_LECHA_ASSAM))
 
     try:
-        circle_rate     = float(attrs.get("circle_rate_inr", 0) or 0)
-        estimated_value = area_ha * circle_rate
+        circle_rate = float(attrs.get("circle_rate_inr", 0) or 0)
+        land_use = attrs.get("land_use", "Agricultural")
+        
+        multipliers = {
+            'Commercial': 2.5, 'Industrial': 1.8, 'Residential': 1.5,
+            'Agricultural': 1.0, 'Government': 1.2, 'Forest': 0.8, 'Wasteland': 0.5
+        }
+        multiplier = multipliers.get(land_use, 1.0)
+        estimated_value = area_ha * circle_rate * multiplier
     except Exception:
         circle_rate = 0
         estimated_value = 0
@@ -118,7 +125,7 @@ def generate_property_card_pdf(record, map_image_base64=None):
     # ── Header ───────────────────────────────────────────────────────────────
     pdf.set_y(10)
     pdf.set_font("Helvetica", "B", 14)
-    pdf.cell(170, 7, "India LIMS - Property Card (Khasra Patta)", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(170, 7, "LIMS - Property Card (Khasra Patta)", new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.set_font("Helvetica", "", 8)
     pdf.cell(170, 4, "Land Information Management System | Academic Prototype", new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.set_font("Helvetica", "B", 9)
@@ -156,14 +163,16 @@ def generate_property_card_pdf(record, map_image_base64=None):
         ("State",        state),
         ("District",     district),
         ("Village/Ward", village),
+        ("Share (%)",    f"{owner.get('share_pct', 'N/A')}%"),
     ]
     right = [
         ("Area (Ha)",    f"{area_ha} Ha"),
         ("Area (Acres)", f"{area_acres} Ac"),
-        ("Area (Bigha)", f"{area_bigha} Bigha (Assam)"),
-        ("Area (Lecha)", f"{area_lecha} Lecha (Assam)"),
+        ("Area (Bigha)", f"{area_bigha} Bigha"),
         ("Circle Rate",  f"Rs. {_fmt_inr(int(circle_rate))}/Ha" if circle_rate else "N/A"),
         ("Est. Value",   f"Rs. {_fmt_inr(int(estimated_value))}" if estimated_value else "N/A"),
+        ("Centroid",     f"{attrs.get('centroid', {}).get('lat', 'N/A')}, {attrs.get('centroid', {}).get('lng', 'N/A')}"),
+        ("Perimeter",    f"{int(attrs.get('perimeter_m', 0))} meters"),
         ("Owner",        owner.get("name", "N/A")),
     ]
 
@@ -172,13 +181,12 @@ def generate_property_card_pdf(record, map_image_base64=None):
     for i, (lbl, val) in enumerate(right):
         draw_row(10 + LW + VW + GAP, Y_TABLE + i * RH, lbl, val)
 
-    # One extra row: Share % and Mutations
-    y_extra = Y_TABLE + 7 * RH
-    draw_row(10, y_extra, "Share (%)", f"{owner.get('share_pct', 'N/A')}%")
-    draw_row(10 + LW + VW + GAP, y_extra, "Mutations", f"{len(mutations)} on record")
-
+    # Extra row for Mutations (full width below the two columns)
+    y_mut = Y_TABLE + max(len(left), len(right)) * RH
+    draw_row(10, y_mut, "Mutation History", f"{len(mutations)} transaction(s) recorded on this parcel")
+    
     pdf.ln(0)
-    y_after_table = y_extra + RH + 3
+    y_after_table = y_mut + RH + 3
 
     # ── Divider ───────────────────────────────────────────────────────────────
     pdf.set_draw_color(30, 64, 150)
@@ -244,6 +252,39 @@ def generate_property_card_pdf(record, map_image_base64=None):
 
     y_after_map = MAP_Y + MAP_H + 3
 
+    # ── Page 2: Mutation Ledger (History) ──────────────────────────────────
+    if mutations:
+        pdf.add_page()
+        pdf.set_y(15)
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 7, "Ownership Mutation Ledger (History of Transactions)", new_x="LMARGIN", new_y="NEXT", align="C")
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.cell(0, 4, f"Detailed record of ownership changes for ULPIN: {record.get('ulpin', 'N/A')}", new_x="LMARGIN", new_y="NEXT", align="C")
+        pdf.ln(5)
+
+        # Table Header
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_fill_color(240, 240, 240)
+        col_widths = [35, 60, 30, 30, 35]
+        headers = ["Date", "Previous Owner", "Type", "Share", "Reference"]
+        for i, h in enumerate(headers):
+            pdf.cell(col_widths[i], 8, h, border=1, fill=True, align="C")
+        pdf.ln(8)
+
+        # Table Rows
+        pdf.set_font("Helvetica", "", 7.5)
+        for mut in mutations:
+            pdf.cell(col_widths[0], 7, f" {mut.get('mutation_date', 'N/A')}", border=1)
+            pdf.cell(col_widths[1], 7, f" {mut.get('previous_owner', 'N/A')[:38]}", border=1)
+            pdf.cell(col_widths[2], 7, f" {mut.get('mutation_type', 'Sale Deed')}", border=1)
+            pdf.cell(col_widths[3], 7, f" {mut.get('previous_share_pct', 100)}%", border=1, align="C")
+            pdf.cell(col_widths[4], 7, f" {mut.get('mutation_ref', 'N/A')[:22]}", border=1)
+            pdf.ln(7)
+            
+        pdf.ln(10)
+        pdf.set_font("Helvetica", "I", 8)
+        pdf.multi_cell(0, 5, "Note: This ledger is an archived record of past ownership. The first page of this document reflects the current state of the land record as per the digital database.")
+
 
     # ── Footer ───────────────────────────────────────────────────────────────
     pdf.set_y(281)   # 297 - 16mm from bottom
@@ -254,7 +295,7 @@ def generate_property_card_pdf(record, map_image_base64=None):
     gen_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     pdf.set_font("Helvetica", "I", 7)
     doc_id = f"PC-{record.get('ulpin','N/A')}-{datetime.now().strftime('%Y%m%d%H%M')}"
-    pdf.cell(0, 4, f"Generated: {gen_time}  |  Document ID: {doc_id}  |  India LIMS Academic Prototype", new_x="LMARGIN", new_y="NEXT", align="C")
+    pdf.cell(0, 4, f"Generated: {gen_time}  |  Document ID: {doc_id}  |  LIMS Academic Prototype", new_x="LMARGIN", new_y="NEXT", align="C")
     pdf.set_font("Helvetica", "B", 7)
     pdf.cell(0, 4, "Computer-generated document. Scan QR code for digital verification.", new_x="LMARGIN", new_y="NEXT", align="C")
 
@@ -306,6 +347,16 @@ def generate_village_excel(records, village_name="All Villages"):
         last_mut = muts[-1] if muts else {}
 
         area_ha = float(attrs.get("area_ha", 0) or 0)
+        circle_rate = float(attrs.get("circle_rate_inr", 0) or 0)
+        land_use = attrs.get("land_use", "Agricultural")
+        
+        multipliers = {
+            'Commercial': 2.5, 'Industrial': 1.8, 'Residential': 1.5,
+            'Agricultural': 1.0, 'Government': 1.2, 'Forest': 0.8, 'Wasteland': 0.5
+        }
+        multiplier = multipliers.get(land_use, 1.0)
+        estimated_value = area_ha * circle_rate * multiplier
+
         flat_rows.append({
             "ULPIN":                   rec.get("ulpin", ""),
             "Khasra No.":              rec.get("khasra_no", ""),
@@ -318,7 +369,9 @@ def generate_village_excel(records, village_name="All Villages"):
             "Area (Lecha - Assam)":    int(round(area_ha * HA_TO_LECHA_ASSAM)),
             "Area (Acres)":            round(area_ha * HA_TO_ACRE, 2),
             "Land Use":                attrs.get("land_use", ""),
-            "Circle Rate (INR/Ha)":    attrs.get("circle_rate_inr", 0),
+            "Circle Rate (INR/Ha)":    circle_rate,
+            "Multiplier":              multiplier,
+            "Estimated Value (INR)":   estimated_value,
             "Owner Name":              owner.get("name", ""),
             "Share (%)":               owner.get("share_pct", 0),
             "Aadhaar (Masked)":        owner.get("aadhaar_mask", ""),

@@ -3,30 +3,219 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>India LIMS - Admin Dashboard</title>
+    <title>LIMS - Admin Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        if (window.tailwind) {
+            tailwind.config = {
+                darkMode: 'class',
+                theme: {
+                    extend: {
+                        colors: {
+                            orange: {
+                                50: '#fff7ed',
+                                100: '#ffedd5',
+                                500: '#f97316',
+                                600: '#ea580c',
+                                700: '#c2410c',
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        // Global Dark Mode Controller
+        function toggleLimsTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            const sunIcon = document.getElementById('sun-icon');
+            const moonIcon = document.getElementById('moon-icon');
+            
+            if (isDark) {
+                if (sunIcon) sunIcon.classList.remove('hidden');
+                if (moonIcon) moonIcon.classList.add('hidden');
+            } else {
+                if (sunIcon) sunIcon.classList.add('hidden');
+                if (moonIcon) moonIcon.classList.remove('hidden');
+            }
+            localStorage.setItem('lims-theme', isDark ? 'dark' : 'light');
+            console.log('LIMS Theme toggled to:', isDark ? 'DARK' : 'LIGHT');
+        }
+
+        // Apply theme immediately
+        (function() {
+            const savedTheme = localStorage.getItem('lims-theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+
+        // Sync icons once DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            const isDark = document.documentElement.classList.contains('dark');
+            const sunIcon = document.getElementById('sun-icon');
+            const moonIcon = document.getElementById('moon-icon');
+            if (isDark) {
+                if (sunIcon) sunIcon.classList.remove('hidden');
+                if (moonIcon) moonIcon.classList.add('hidden');
+            } else {
+                if (sunIcon) sunIcon.classList.add('hidden');
+                if (moonIcon) moonIcon.classList.remove('hidden');
+            }
+        });
+    </script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+    <style>
+        /* Dark Mode Transitions */
+        .dark-mode-transition * { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease; }
+        
+        /* Dark Mode Overrides */
+        .dark #admin-sidebar, .dark .bg-white, .dark .main-tab-panel {
+            background-color: #1e293b !important; /* slate-800 */
+            color: #f1f5f9 !important;
+            border-color: #334155 !important;
+        }
+        .dark .bg-gray-50, .dark .bg-gray-100 {
+            background-color: #0f172a !important; /* slate-900 */
+        }
+        .dark .text-gray-700, .dark .text-gray-800, .dark .text-gray-600 {
+            color: #e2e8f0 !important;
+        }
+        .dark .border-gray-200, .dark .border-gray-100, .dark .border-b {
+            border-color: #334155 !important;
+        }
+        .dark input, .dark select, .dark textarea {
+            background-color: #334155 !important;
+            color: white !important;
+            border-color: #475569 !important;
+        }
+        .dark .main-tab-btn {
+            color: #94a3b8 !important;
+        }
+        .dark .main-tab-btn:hover {
+            background-color: #334155 !important;
+            color: white !important;
+        }
+        .dark .main-tab-btn.active {
+            background-color: #f97316 !important; /* orange-500 */
+            color: white !important;
+        }
+        .dark .bg-blue-50, .dark .bg-orange-50, .dark .bg-green-50, .dark .bg-purple-50 {
+            background-color: #1e293b !important;
+            border-color: #334155 !important;
+        }
+        .dark .bg-orange-100, .dark .bg-blue-100, .dark .bg-green-100, .dark .bg-purple-100 {
+            background-color: #334155 !important; /* Muted icon background */
+        }
+        /* Gradient Fixes for Dark Mode */
+        .dark .from-green-50, .dark .to-green-100, .dark .from-blue-50, .dark .to-blue-100 {
+            --tw-gradient-from: #1e293b !important;
+            --tw-gradient-to: #0f172a !important;
+            background-color: #1e293b !important;
+        }
+        
+        /* Empty State & Chart Polish */
+        .dark #dashboard-top-parcel, .dark #dashboard-mutations > div, .dark .bg-white, .dark .record-card, .dark .record-table-row, .dark .records-header {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+            border-color: #334155 !important;
+        }
+        .dark .record-card:hover, .dark .record-table-row:hover {
+            background-color: #334155 !important;
+        }
+        .dark .record-card.active, .dark .record-table-row.active {
+            background-color: rgba(249, 115, 22, 0.15) !important;
+            border-color: #f97316 !important;
+        }
+        .dark .records-view-tab {
+            background-color: #334155 !important;
+            color: #94a3b8 !important;
+            border-color: #475569 !important;
+        }
+        .dark .records-view-tab.active {
+            background-color: #f97316 !important;
+            color: white !important;
+        }
+        .dark #dashboard-land-use div { color: #cbd5e1 !important; }
+        .dark .legend-text { color: #f1f5f9 !important; }
+
+        /* Comprehensive Text Polish */
+        .dark .text-gray-900, .dark .text-slate-900 { color: #f8fafc !important; }
+        .dark .text-gray-800, .dark .text-slate-800 { color: #f1f5f9 !important; }
+        .dark .text-gray-700, .dark .text-slate-700 { color: #e2e8f0 !important; }
+        .dark .text-gray-600, .dark .text-slate-600, .dark .text-gray-500, .dark .text-slate-500 { color: #cbd5e1 !important; }
+        .dark .text-gray-400, .dark .text-slate-400 { color: #94a3b8 !important; }
+
+        /* Backgrounds & Borders */
+        .dark .bg-gray-200, .dark .bg-slate-200 { background-color: #334155 !important; }
+        .dark .bg-gray-300, .dark .bg-slate-300 { background-color: #475569 !important; }
+        .dark .border-gray-300, .dark .border-gray-200, .dark .divide-gray-100, .dark .divide-y > * {
+            border-color: #334155 !important;
+        }
+        /* Badges Dark Mode */
+        .dark .badge-agricultural { background-color: #064e3b !important; color: #6ee7b7 !important; }
+        .dark .badge-residential { background-color: #1e3a8a !important; color: #93c5fd !important; }
+        .dark .badge-commercial { background-color: #78350f !important; color: #fcd34d !important; }
+        .dark .badge-industrial { background-color: #4c1d95 !important; color: #c4b5fd !important; }
+        .dark .badge-government { background-color: #7f1d1d !important; color: #fca5a5 !important; }
+        .dark .badge-forest { background-color: #064e3b !important; color: #34d399 !important; }
+        .dark .badge-wasteland { background-color: #374151 !important; color: #d1d5db !important; }
+        .dark .badge-deleted { background-color: #7f1d1d !important; color: #fca5a5 !important; }
+        
+        /* Toolbar and list headers */
+        .dark .records-header, .dark .bg-white.border-b {
+            background-color: #0f172a !important; /* slate-900 for toolbars */
+            border-color: #334155 !important;
+        }
+
+        /* Map Dark Mode - CSS Filter Trick */
+        .dark #map, .dark #add-record-map, .dark #view-record-map, .dark .leaflet-container {
+            filter: invert(100%) hue-rotate(180deg) brightness(95%) contrast(90%);
+        }
+        .dark .leaflet-tile-pane { opacity: 0.8; }
+        .dark .leaflet-control-zoom a, .dark .leaflet-control-layers, .dark .leaflet-control-attribution {
+            filter: invert(100%) hue-rotate(180deg);
+        }
+
+        /* Map Popups */
+        .dark .leaflet-popup-content-wrapper, .dark .leaflet-popup-tip {
+            background-color: #1e293b !important;
+            color: #f1f5f9 !important;
+            border: 1px solid #334155;
+        }
+
+        .dark input::placeholder {
+            color: #64748b !important;
+        }
+        /* Dark Scrollbar */
+        .dark ::-webkit-scrollbar { width: 8px; height: 8px; }
+        .dark ::-webkit-scrollbar-track { background: #0f172a; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    </style>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏛️</text></svg>">
 </head>
 <body class="bg-gray-100 h-[100dvh] flex flex-col overflow-hidden">
 
     <!-- Top Navigation Bar -->
     <nav class="bg-gradient-to-r from-orange-600 to-orange-700 shadow-lg z-50 flex-shrink-0">
-        <div class="flex items-center justify-between px-4 sm:px-6 py-3">
+        <div class="flex items-center justify-between px-3 sm:px-6 py-2 sm:py-3">
             <div class="flex items-center gap-2 sm:gap-3">
                 <!-- Mobile: Sidebar Toggle Button -->
                 <button id="btn-toggle-sidebar" class="md:hidden text-white hover:bg-white/20 transition p-2 rounded-lg">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
-                <div class="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-lg flex items-center justify-center shadow-md">
+                <div class="w-7 h-7 sm:w-10 sm:h-10 bg-white rounded-lg flex items-center justify-center shadow-md">
                     <svg class="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                     </svg>
                 </div>
                 <div>
-                    <h1 class="text-lg sm:text-xl font-bold text-white">India LIMS</h1>
+                    <h1 class="text-lg sm:text-xl font-bold text-white">LIMS</h1>
                     <p class="text-[10px] sm:text-xs text-orange-100 hidden sm:block">Land Information Management System</p>
                 </div>
             </div>
@@ -35,14 +224,29 @@
                     <span id="rtc-time" class="block font-bold">--:--:--</span>
                     <span id="rtc-date" class="text-[9px] sm:text-[10px] uppercase tracking-wider">--/--/----</span>
                 </div>
-                <div class="flex items-center gap-2 bg-white/20 backdrop-blur px-3 sm:px-4 py-2 rounded-lg">
-                    <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <span class="text-sm font-medium text-white truncate max-w-[80px] sm:max-w-none">{{ username }}</span>
-                    <span class="text-[10px] sm:text-xs bg-white/30 text-white px-2 py-0.5 rounded-full font-semibold">ADMIN</span>
+                <button id="btn-toggle-darkmode" onclick="toggleLimsTheme()" class="text-white/80 hover:text-white hover:bg-white/20 transition p-2 rounded-lg" title="Toggle Dark Mode">
+                    <svg id="sun-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707-.707M12 8a4 4 0 110 8 4 4 0 010-8z"/></svg>
+                    <svg id="moon-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                </button>
+                <div class="flex items-center gap-2 bg-white/20 backdrop-blur px-2 sm:px-4 py-1.5 sm:py-2 rounded-lg">
+                    <div class="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"></div>
+                    <span class="text-xs sm:text-sm font-medium text-white truncate max-w-[60px] sm:max-w-none">{{ username }}</span>
+                    <span class="hidden xs:inline-block text-[10px] sm:text-xs bg-white/30 text-white px-2 py-0.5 rounded-full font-semibold">ADMIN</span>
                 </div>
             </div>
         </div>
     </nav>
+
+    <!-- Dark Mode Support Script (Independent) -->
+    <script>
+        (function() {
+            const savedTheme = localStorage.getItem('lims-theme');
+            const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (savedTheme === 'dark' || (!savedTheme && systemPrefersDark)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
 
     <!-- Main Layout: Left Sidebar + Content -->
     <div class="flex-1 flex overflow-hidden relative">
@@ -78,13 +282,17 @@
             <!-- Bottom Section: Profile & Logout -->
             <div class="border-t pb-safe mt-auto">
                 <div class="p-2 space-y-1 mb-[env(safe-area-inset-bottom,20px)] md:mb-0">
-                    <button class="main-tab-btn" data-tab="profile">
+                    <button id="btn-profile" class="main-tab-btn" data-tab="profile">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                         <span>Profile</span>
                     </button>
-                    <button class="main-tab-btn" data-tab="users">
+                    <button id="btn-users" class="main-tab-btn" data-tab="users">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/></svg>
                         <span>User Management</span>
+                    </button>
+                    <button id="btn-audit" class="main-tab-btn" data-tab="audit">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"/></svg>
+                        <span>Audit Log</span>
                     </button>
                     <button id="btn-logout" class="w-full flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 transition rounded-lg border-l-4 border-transparent hover:border-red-600 pb-6 md:pb-3">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
@@ -108,6 +316,9 @@
                         <select id="district-filter" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:min-w-40">
                             <option value="">All Districts</option>
                         </select>
+                        <select id="village-filter" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 sm:min-w-40">
+                            <option value="">All Villages</option>
+                        </select>
                     </div>
                     <div class="flex w-full sm:w-auto gap-2">
                         <select id="land-use-filter" class="flex-1 sm:flex-none px-2 sm:px-3 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
@@ -127,9 +338,9 @@
                     <div class="hidden sm:block flex-1"></div>
                     <div class="relative w-full sm:w-auto flex items-center gap-2">
                         <div class="relative flex-1">
-                            <input type="text" id="search-input" placeholder="Search..."
-                                class="w-full sm:w-64 pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
-                            <svg class="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <input type="text" id="record-search" placeholder="Search by Khasra or Owner..."
+                                class="w-full sm:w-64 pl-9 pr-4 py-1.5 sm:py-2 border border-gray-300 rounded-lg text-xs sm:text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                            <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                         </div>
                         <!-- Primary CTA Button -->
                         <button id="btn-add-record-new" class="px-3 sm:px-4 py-1.5 sm:py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 shadow-md whitespace-nowrap">
@@ -141,6 +352,9 @@
                             <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                             <span class="max-sm:hidden">Export Excel</span>
                             <span class="sm:hidden">Export</span>
+                        </button>
+                        <button id="btn-refresh-records" class="p-1.5 sm:p-2 text-gray-500 hover:text-orange-600 hover:bg-orange-50 rounded-lg transition" title="Refresh Records">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                         </button>
                     </div>
                 </div>
@@ -177,7 +391,7 @@
 
             <!-- Map View Tab -->
             <div id="main-tab-map" class="main-tab-panel hidden h-full relative">
-                <div id="map" class="w-full h-full"></div>
+                <div id="map" class="w-full h-full" data-mode="admin"></div>
 
                 <!-- Layer Switcher -->
                 <div class="absolute top-3 right-3 z-[999] bg-white rounded-lg shadow-lg p-3 hidden md:block">
@@ -262,11 +476,11 @@
                     <!-- Drawing Controls for Add Record -->
                     <div id="add-draw-controls" class="absolute bottom-3 left-2 right-2 md:right-auto md:left-3 z-[1000] bg-white rounded-lg shadow-lg p-2 md:p-3 md:w-72">
                         <p class="text-[10px] md:text-xs font-semibold text-gray-500 mb-1 md:mb-2 px-1">DRAW TOOLS</p>
-                        <div class="grid grid-cols-4 md:grid-cols-2 gap-1.5 md:gap-2">
-                            <button id="btn-start-draw-new" type="button" class="draw-settings-btn bg-orange-600 text-white hover:bg-orange-700 px-1 md:px-3 text-[10px] md:text-xs py-1.5 md:py-2">Draw</button>
-                            <button id="btn-finish-draw-new" type="button" class="draw-settings-btn bg-blue-600 text-white hover:bg-blue-700 px-1 md:px-3 text-[10px] md:text-xs py-1.5 md:py-2">Finish</button>
-                            <button id="btn-cancel-draw-new" type="button" class="draw-settings-btn bg-amber-600 text-white hover:bg-amber-700 px-1 md:px-3 text-[10px] md:text-xs py-1.5 md:py-2">Cancel</button>
-                            <button id="btn-clear-draw-new" type="button" class="draw-settings-btn bg-gray-700 text-white hover:bg-gray-800 px-1 md:px-3 text-[10px] md:text-xs py-1.5 md:py-2">Clear</button>
+                        <div class="grid grid-cols-4 md:grid-cols-2 gap-1 md:gap-2">
+                            <button id="btn-start-draw-new" type="button" class="draw-settings-btn bg-orange-600 text-white hover:bg-orange-700 px-1 md:px-3 text-[9px] md:text-xs py-1 md:py-2">Draw</button>
+                            <button id="btn-finish-draw-new" type="button" class="draw-settings-btn bg-blue-600 text-white hover:bg-blue-700 px-1 md:px-3 text-[9px] md:text-xs py-1 md:py-2">Done</button>
+                            <button id="btn-cancel-draw-new" type="button" class="draw-settings-btn bg-amber-600 text-white hover:bg-amber-700 px-1 md:px-3 text-[9px] md:text-xs py-1 md:py-2">Back</button>
+                            <button id="btn-clear-draw-new" type="button" class="draw-settings-btn bg-gray-700 text-white hover:bg-gray-800 px-1 md:px-3 text-[9px] md:text-xs py-1 md:py-2">Clear</button>
                         </div>
                     </div>
                 </div>
@@ -386,6 +600,16 @@
                                     <div>
                                         <label class="block text-sm font-medium text-gray-700 mb-1">Circle Rate (INR/ha)</label>
                                         <input type="number" id="form-circle-rate" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm" placeholder="e.g. 45000" value="0">
+                                    </div>
+                                </div>
+                                <div id="live-valuation-banner" class="mt-4 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center justify-between">
+                                    <div>
+                                        <p class="text-[10px] font-bold text-green-700 uppercase">Live Estimated Value</p>
+                                        <p class="text-lg font-bold text-green-800" id="form-live-value">Rs. 0</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-[10px] font-bold text-green-600 uppercase">Multiplier</p>
+                                        <p class="text-xs font-semibold text-green-700" id="form-live-multiplier">1.0x</p>
                                     </div>
                                 </div>
                                 <div id="area-equivalents" class="hidden mt-3 p-2 bg-green-50 border-l-4 border-green-500 rounded-r-lg text-xs text-green-800 grid grid-cols-3 gap-2"></div>
@@ -509,11 +733,11 @@
                 <!-- Details Panel (1/3) -->
                 <div class="w-full md:w-1/3 bg-white border-t md:border-t-0 md:border-l border-gray-200 flex flex-col flex-1 overflow-hidden">
                     <!-- Scrollable Content -->
-                    <div class="flex-1 overflow-y-auto p-5 space-y-4">
+                    <div class="flex-1 overflow-y-auto p-3 sm:p-5 space-y-3 sm:space-y-4">
                         <!-- Header -->
                         <div class="bg-white border border-gray-200 rounded-lg p-4">
                             <div class="flex items-center justify-between mb-2">
-                                <h2 class="text-xl font-bold text-gray-800" id="view-khasra">--</h2>
+                                <h2 class="text-lg sm:text-xl font-bold text-gray-800" id="view-khasra">--</h2>
                                 <span id="view-land-use-badge" class="land-use-badge badge-agricultural">--</span>
                             </div>
                             <p class="text-sm text-gray-500 font-mono" id="view-ulpin">--</p>
@@ -610,9 +834,9 @@
                     </div>
 
                     <!-- Fixed Footer with Action Buttons -->
-                    <div class="bg-gray-50 border-t border-gray-200 p-4 flex-shrink-0">
+                    <div class="bg-gray-50 border-t border-gray-200 p-3 sm:p-4 flex-shrink-0">
                         <div class="space-y-2">
-                            <button id="btn-view-edit" class="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-lg transition flex items-center justify-center gap-2 text-sm font-medium">
+                            <button id="btn-view-edit" class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2.5 sm:py-3 rounded-lg transition flex items-center justify-center gap-2 text-sm font-medium">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
                                 Edit / Mutate Record
                             </button>
@@ -635,12 +859,15 @@
             <div id="main-tab-dashboard" class="main-tab-panel overflow-y-auto p-6 h-full">
                 <div class="max-w-7xl mx-auto">
                     <!-- Welcome Banner & Quick Actions CTA -->
-                    <div class="bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl shadow-lg p-6 mb-6 text-white flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div class="bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl shadow-lg p-4 sm:p-6 mb-6 text-white flex flex-col md:flex-row justify-between items-center gap-4 sm:gap-6">
                         <div>
-                            <h2 class="text-2xl font-bold mb-1">Welcome to the Command Center, {{ username }}</h2>
-                            <p class="text-gray-300 text-sm">Monitor land parcels, process mutations, and generate official DILRMP reports instantly.</p>
+                            <h2 class="text-lg sm:text-2xl font-bold mb-1">Welcome, {{ username }}</h2>
+                            <p class="text-gray-300 text-[11px] sm:text-sm">Monitor parcels and process mutations instantly.</p>
                         </div>
                         <div class="flex flex-wrap gap-3 w-full md:w-auto">
+                            <button id="btn-refresh-dashboard" class="flex-1 md:flex-none bg-white/10 hover:bg-white/20 backdrop-blur border border-white/20 p-2.5 rounded-lg transition" title="Refresh Dashboard Stats">
+                                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                            </button>
                             <button onclick="document.querySelector('[data-tab=\'add-record\']').click()" class="flex-1 md:flex-none bg-orange-500 hover:bg-orange-600 px-5 py-2.5 rounded-lg font-bold shadow-lg transition flex items-center justify-center gap-2">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                                 Register New Parcel
@@ -653,7 +880,7 @@
                     </div>
 
                     <!-- KPI Cards -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
                         <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-orange-500">
                             <div class="flex items-center justify-between">
                                 <div>
@@ -690,11 +917,11 @@
                         <div class="bg-white rounded-lg shadow-md p-4 border-l-4 border-purple-500">
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <p class="text-xs font-semibold text-gray-500 uppercase">Mutations Logged</p>
-                                    <p id="kpi-mutations" class="text-2xl font-bold text-gray-800 mt-1">0</p>
+                                    <p class="text-[10px] font-semibold text-gray-500 uppercase">Mutations</p>
+                                    <p id="kpi-mutations" class="text-lg sm:text-2xl font-bold text-gray-800 mt-0.5">0</p>
                                 </div>
-                                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
+                                <div class="w-10 h-10 sm:w-12 sm:h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+                                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/></svg>
                                 </div>
                             </div>
                         </div>
@@ -760,13 +987,8 @@
                                     <div class="flex justify-between pt-2 border-t"><span class="text-gray-500">Last Login</span><span class="font-medium" id="profile-last-login">--</span></div>
                                 </div>
                             </div>
-
-                            <!-- Edit Profile Button -->
-                            <button id="btn-edit-profile" class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2.5 rounded-lg transition flex items-center justify-center gap-2 text-sm font-medium">
-                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-                                Edit My Profile
-                            </button>
                         </div>
+
 
                         <!-- Right: Edit Profile Form / User Management -->
                         <div class="lg:col-span-2 space-y-4">
@@ -774,7 +996,7 @@
                             <div id="edit-profile-form" class="bg-white rounded-lg shadow-md p-6 hidden">
                                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Edit My Profile</h3>
                                 <form id="profile-form" class="space-y-4">
-                                    <div class="grid grid-cols-2 gap-4">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
                                             <input type="text" id="edit-full-name" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500" required>
@@ -830,7 +1052,7 @@
                             <!-- Profile View Only -->
                             <div id="profile-view" class="bg-white rounded-lg shadow-md p-6">
                                 <h3 class="text-lg font-semibold text-gray-800 mb-4">My Profile Information</h3>
-                                <div class="grid grid-cols-2 gap-4">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
                                         <label class="block text-xs font-medium text-gray-500 mb-1">Username</label>
                                         <p id="profile-view-username" class="text-sm font-medium text-gray-800">--</p>
@@ -994,7 +1216,6 @@
                                 <div>
                                     <label class="block text-sm font-medium text-gray-700 mb-1">Role *</label>
                                     <select id="create-role" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
-                                        <option value="Viewer">Viewer - Read-only access</option>
                                         <option value="Officer">Officer - Can create/edit records</option>
                                         <option value="Admin">Admin - Full access + user management</option>
                                         <option value="SuperAdmin">Super Admin - All permissions</option>
@@ -1005,9 +1226,15 @@
                                     <input type="text" id="create-office" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500" placeholder="e.g. Delhi Office">
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <input type="checkbox" id="create-active" checked class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                                <label for="create-active" class="text-sm font-medium text-gray-700">Active user (can login immediately)</label>
+                            <div class="flex items-center gap-4">
+                                <div class="flex items-center gap-2">
+                                    <input type="checkbox" id="create-active" checked class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
+                                    <label for="create-active" class="text-sm font-medium text-gray-700">Active</label>
+                                </div>
+                                <div id="create-recovery-container" class="hidden flex items-center gap-2">
+                                    <input type="checkbox" id="create-is-recovery" class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500">
+                                    <label for="create-is-recovery" class="text-sm font-medium text-red-700">Recovery Superuser (Ghost Mode)</label>
+                                </div>
                             </div>
                             <div class="flex gap-2 pt-2">
                                 <button type="submit" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2.5 px-4 rounded-lg transition text-sm font-semibold">Create User</button>
@@ -1047,6 +1274,22 @@
                     </div>
                 </div>
             </div>
+            
+            <!-- Audit Tab -->
+            <div id="main-tab-audit" class="main-tab-panel hidden h-full overflow-y-auto">
+                <div class="max-w-7xl mx-auto p-6">
+                    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <div>
+                                <h2 class="text-xl font-bold text-gray-800">System Audit Log</h2>
+                                <p class="text-sm text-gray-600 mt-1">Review system activities and record changes</p>
+                            </div>
+                        </div>
+                        <div id="audit-entries"></div>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -1069,7 +1312,6 @@
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Role *</label>
                         <select id="edit-role" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
-                            <option value="Viewer">Viewer - Read-only access</option>
                             <option value="Officer">Officer - Can create/edit records</option>
                             <option value="Admin">Admin - Full access + user management</option>
                             <option value="SuperAdmin">Super Admin - All permissions</option>
@@ -1106,9 +1348,15 @@
                         <input type="text" id="edit-office-user" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500">
                     </div>
                     <div class="flex items-end">
-                        <div class="flex items-center gap-2">
-                            <input type="checkbox" id="edit-is-active" class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
-                            <label for="edit-is-active" class="text-sm font-medium text-gray-700">Active</label>
+                        <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" id="edit-is-active" class="h-4 w-4 rounded border-gray-300 text-orange-600 focus:ring-orange-500">
+                                <label for="edit-is-active" class="text-sm font-medium text-gray-700">Active</label>
+                            </div>
+                            <div id="edit-recovery-container" class="hidden flex items-center gap-2">
+                                <input type="checkbox" id="edit-is-recovery" class="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500">
+                                <label for="edit-is-recovery" class="text-sm font-medium text-red-700">Recovery Status</label>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1139,8 +1387,17 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <!-- App Modules -->
     <script src="{{ url_for('static', filename='js/api.js') }}"></script>
     <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/state.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/utils.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/map_engine.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/gis.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/dashboard.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/records.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/forms.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/admin.js') }}?v=2"></script>
     <script src="{{ url_for('static', filename='js/map.js') }}?v=3"></script>
 
     <script>
@@ -1173,7 +1430,7 @@
             // Close sidebar when a tab is clicked on mobile
             tabBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
-                    if (window.innerWidth < 768 && !btn.id) { // ignore logout button which has an ID
+                    if (window.innerWidth < 768 && btn.id !== 'btn-logout') {
                         closeSidebar();
                     }
                 });
@@ -1185,6 +1442,7 @@
                     closeSidebar();
                 }
             });
+
         });
     </script>
 </body>

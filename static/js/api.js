@@ -56,6 +56,14 @@ async function getSessionInfo() {
     return res.json();
 }
 
+async function forgotPassword() {
+    const res = await fetch(`${API_BASE}/api/forgot`, {
+        ...FETCH_OPTS,
+        method: 'GET'
+    });
+    return res.json();
+}
+
 // --- Records Endpoints ---
 async function fetchRecords() {
     const res = await fetch(`${API_BASE}/api/records`, {
@@ -91,6 +99,12 @@ async function searchRecords(query) {
         throw new Error(err.error || 'Search failed');
     }
     return res.json();
+}
+
+async function fetchLocationCatalog() {
+    const res = await fetch(`${API_BASE}/api/location-catalog`, FETCH_OPTS);
+    if (!res.ok) throw new Error('Failed to fetch location catalog');
+    return await res.json();
 }
 
 async function createRecord(recordData) {
@@ -129,6 +143,18 @@ async function deleteRecord(recordId) {
     if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Failed to delete record');
+    }
+    return res.json();
+}
+
+async function restoreRecord(recordId) {
+    const res = await fetch(`${API_BASE}/api/records/${recordId}/restore`, {
+        ...FETCH_OPTS,
+        method: 'POST'
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to restore record');
     }
     return res.json();
 }
@@ -225,21 +251,6 @@ async function fetchDashboardAnalytics(filters = {}) {
     return res.json();
 }
 
-/**
- * Get location catalog (state > district > village hierarchy).
- * @returns {Promise<Object>} - { state: { district: [villages] } }
- */
-async function fetchLocationCatalog() {
-    const res = await fetch(`${API_BASE}/api/location-catalog`, {
-        ...FETCH_OPTS,
-        method: 'GET'
-    });
-    if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to fetch location catalog');
-    }
-    return res.json();
-}
 
 /**
  * Get application config (land use colors, options, etc.).
@@ -257,10 +268,20 @@ async function fetchAppConfig() {
     return res.json();
 }
 
-// --- Document Generation Endpoints ---
-function getPropertyCardUrl(ulpin) {
-    return `${API_BASE}/api/print-card/${ulpin}`;
+async function fetchAudit(limit = 50) {
+    const res = await fetch(`${API_BASE}/api/audit?limit=${encodeURIComponent(limit)}`, {
+        ...FETCH_OPTS,
+        method: 'GET'
+    });
+    if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to fetch audit log');
+    }
+    return res.json();
 }
+
+// --- Document Generation Endpoints ---
+function getPropertyCardUrl(ulpin) { return `${API_BASE}/api/print-card/${ulpin}`; }
 
 function getVillageExcelUrl(village) {
     const params = village ? `?village=${encodeURIComponent(village)}` : '';

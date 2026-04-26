@@ -30,8 +30,13 @@ def _get_or_create_secret_key():
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 SECRET_KEY = _get_or_create_secret_key()
 DEBUG = os.environ.get("LIMS_DEBUG", "false").lower() == "true"
-HOST = os.environ.get("LIMS_HOST", "127.0.0.1")
-PORT = int(os.environ.get("LIMS_PORT", 5000))
+
+# Render provides 'PORT' env var, standard local uses 'LIMS_PORT'
+PORT = int(os.environ.get("PORT", os.environ.get("LIMS_PORT", 5000)))
+
+# On Render/Production, bind to all interfaces; locally use 127.0.0.1 for safety
+RENDER = os.environ.get("RENDER")
+HOST = os.environ.get("LIMS_HOST", "0.0.0.0" if RENDER else "127.0.0.1")
 
 # --- Database Configuration ---
 # The MongoDB Atlas connection string

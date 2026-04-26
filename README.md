@@ -1,179 +1,59 @@
-# India LIMS - Land Information Management System
+# LIMS - Land Information Management System (Prototype)
 
-A GIS-based land records management web application built with **Flask (Python)** backend and Leaflet mapping frontend.
+A professional GIS-based land records management platform designed for modern land administration. This system serves as a **functional prototype** demonstrating advanced spatial data handling, role-based security, and automated reporting.
 
-## Architecture
+## Key Features
 
-**Python does the heavy lifting:**
-- Server-side filtering with `/api/records/filter`
-- Dashboard analytics aggregation with `/api/dashboard`
-- Location catalog generation with `/api/location-catalog`
-- Spatial calculations (Shapely) via `gis_processor.py`
-- Single-page PDF & Excel document generation via `report_generator.py` (using `fpdf2` and `pandas`)
-- Authentication & session management
+- **Interactive GIS Mapping**: Full-featured mapping interface using Leaflet.js with polygon drawing and spatial validation.
+- **Advanced Land Valuation**: Automated property valuation system using dynamic circle rates and land-use multipliers.
+- **Comprehensive Reporting**: Generation of high-quality PDF Property Cards and Excel Village Ledgers with embedded QR codes.
+- **Secure Administration**: Robust Role-Based Access Control (RBAC) with detailed audit logging and soft-deletion workflows.
+- **Public Access**: CAPTCHA-secured read-only viewer for public record verification with sensitive data masking.
 
-**Frontend focuses on:**
-- Interactive Leaflet maps with Geoman drawing
-- Off-screen fixed-size map captures for consistent PDF generation
-- Tab-based UI (Records, Map View, Add Record, Dashboard)
-- Cascading filters for hierarchical location data
-- Responsive design with tailored mobile/desktop map controls
+## Tech Stack
 
-## Project Structure
+- **Backend**: Python / Flask
+- **Database**: MongoDB (NoSQL) for GeoJSON spatial data storage
+- **Frontend**: HTML5, Vanilla CSS, JavaScript
+- **Mapping**: Leaflet.js / Leaflet Geoman
+- **Logic**: Shapely (GIS Processing), Pandas (Excel), FPDF2 (PDF)
 
-```
-india-lims/
-├── app.py                  # Flask REST API server (800+ lines)
-├── config.py               # Centralized configuration
-├── utils.py                # Shared utility functions
-├── gis_processor.py        # Spatial calculations (Shapely)
-├── report_generator.py     # PDF/Excel document generation
-├── build_exe.py            # PyInstaller build script
-├── requirements.txt        # Python dependencies
-├── .gitignore              # Git ignore rules
-│
-├── static/
-│   ├── css/style.css       # Custom styles
-│   └── js/
-│       ├── api.js          # API fetch wrappers + server-side endpoints
-│       ├── auth.js         # Login/CAPTCHA handlers
-│       └── map.js          # Leaflet map + admin workflow
-│
-├── templates/
-│   ├── login.html          # Dual-form login (admin + CAPTCHA)
-│   ├── admin_dashboard.html # Admin dashboard (tab-based)
-│   └── public_viewer_v2.html # Public read-only viewer with filters
-│
-└── data/
-    ├── users.json          # Admin users (auto-created)
-    └── records.json        # Land records (auto-created)
-```
+## Quick Start
 
-## Setup
-
-### Prerequisites
-- Python 3.10+
-- Virtual environment (recommended)
-
-### Installation
+### 1. Installation
 ```bash
-# Create virtual environment
-python -m venv venv
-venv\Scripts\activate   # Windows
-# source venv/bin/activate  # Linux/Mac
+# Create and activate virtual environment
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 # Install dependencies
 pip install -r requirements.txt
+```
 
-# Run the application
+### 2. Configuration
+Create a `.env` file in the root directory and configure the following variables:
+- `MONGO_URI`: Your MongoDB connection string
+- `LIMS_SECRET_KEY`: Secure session key
+- `DEFAULT_ADMIN_USER`: Initial bootstrap admin username
+- `DEFAULT_ADMIN_PASSWORD`: Initial bootstrap admin password
+
+### 3. Execution
+```bash
 python app.py
 ```
 
+## System Roles
 
+1. **Administrator**: Full control over records, user management, and system audits.
+2. **Officer**: Operational access for creating, editing, and soft-deleting land records.
+3. **Public Viewer**: Read-only access to non-sensitive record data with automated PII masking.
 
-## API Endpoints
+## Testing
 
-### Authentication
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | `/api/login` | Public | Admin login |
-| POST | `/api/verify-captcha` | Public | CAPTCHA verification |
-| POST | `/api/logout` | Auth | Logout |
-| GET | `/api/session-info` | Auth | Current session info |
-
-### Records (Python-heavy)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | `/api/records` | Auth | All records |
-| POST | `/api/records` | Admin | Create record |
-| PUT | `/api/records/<id>` | Admin | Update record |
-| DELETE | `/api/records/<id>` | Admin | Delete record |
-| GET | `/api/records/filter` | Auth | **Server-side filtering** |
-| GET | `/api/records/search` | Auth | Text search |
-
-### Analytics (Python-heavy)
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | `/api/dashboard` | Admin | **Pre-computed KPIs & analytics** |
-| GET | `/api/location-catalog` | Auth | **State > district > village hierarchy** |
-| GET | `/api/config` | Public | App configuration (colors, options) |
-
-### GIS Processing
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| POST | `/api/calculate-area` | Auth | Area/perimeter/centroid calculation |
-| POST | `/api/validate-geometry` | Auth | Polygon validation |
-| GET | `/api/location-from-coords` | Auth | Reverse geocoding |
-
-### Documents
-| Method | Endpoint | Access | Description |
-|--------|----------|--------|-------------|
-| GET | `/api/print-card/<ulpin>` | Auth | PDF property card |
-| GET | `/api/export-village` | Admin | Excel village ledger |
-
-## Configuration
-
-Environment variables:
+The system includes a comprehensive automated test suite. To run all tests and generate a status report:
 ```bash
-MONGO_URI=mongodb+srv://<username>:<password>@cluster...
-LIMS_SECRET_KEY=your-secret-key
-LIMS_DEBUG=true
-LIMS_HOST=0.0.0.0
-LIMS_PORT=5000
+python tests/generate_test_report.py
 ```
 
-## Building Executable & Installer
-
-### 1. Compile the Standalone Executable
-```bash
-python build_exe.py
-```
-This uses PyInstaller to bundle the app into a single `.exe` file located at `dist/IndiaLIMS.exe`.
-
-### 2. Create the Windows Installer
-To create a complete Windows setup wizard that handles shortcuts and desktop icons:
-1. Install [Inno Setup](https://jrsoftware.org/isinfo.php).
-2. Open `inno_setup.iss` in the Inno Setup Compiler.
-3. Click **Compile**.
-4. The final installer will be generated in the `installer_output/` folder as `IndiaLIMS_Setup.exe`.
-
-## Web Deployment (e.g. Render)
-
-To deploy India LIMS on a cloud platform like **Render**:
-
-1. Ensure the `MONGO_URI` is correctly set in your environment variables.
-2. In your Render Web Service settings, use the following **Start Command**:
-   ```bash
-   gunicorn app:app
-   ```
-3. Set your internal port mapping to match `LIMS_PORT` or the default `5000`.
-
-**Uptime Monitoring / Health Checks:**
-You can keep the app awake using UptimeRobot or similar services by pinging the dedicated health-check endpoint every few minutes:
-- Endpoint: `GET /ping`
-- Returns: `{"status": "alive"}` (Status 200 OK)
-
-## Features
-
-### Mobile-Responsive Design
-- **Admin & Public Views** - Fully responsive for desktop, tablet, and mobile devices
-- **Collapsible Drawers** - Mobile-friendly hamburger menus and slide-out sidebars
-- **Adaptive Layouts** - Filters, data tables, and mapping interfaces adapt to small screens seamlessly.
-
-### Admin Dashboard
-- **Records tab** - List view with server-side filtering, card/table toggle
-- **Map View tab** - Full-screen map with all parcels, layer switching (OSM/Google/ESRI)
-- **Add Record tab** - Split view: draw polygon + form side-by-side
-- **View Record tab** - Large map (2/3) with details panel (1/3)
-- **Dashboard tab** - Server-computed KPIs, land use distribution, district overview
-
-### Public Viewer
-- Read-only access via CAPTCHA
-- Cascading filter dropdowns (State -> District -> Village)
-- Text search across Khasra, ULPIN, Plot No
-- Masked owner information
-- Responsive mobile legend panel and compact layer switcher
-
-## License
-
-MIT
+---
+*Note: This system is a development prototype and is intended for demonstration purposes only.*

@@ -22,16 +22,26 @@ document.addEventListener('DOMContentLoaded', function() {
             panelPublic.classList.remove('hidden');
             panelAdmin.classList.add('hidden');
             
-            tabPublic.className = "flex-1 py-4 text-sm font-semibold text-center text-green-700 border-b-2 border-green-500 bg-green-50 transition-colors focus:outline-none";
-            tabAdmin.className = "flex-1 py-4 text-sm font-semibold text-center text-gray-500 border-b-2 border-transparent hover:text-orange-600 hover:bg-orange-50 transition-colors focus:outline-none";
+            // Active Public Tab
+            tabPublic.classList.add('text-emerald-700', 'border-emerald-500', 'bg-emerald-50/50');
+            tabPublic.classList.remove('text-gray-400', 'border-transparent', 'hover:text-orange-600', 'hover:bg-orange-50/30');
+            
+            // Inactive Admin Tab
+            tabAdmin.classList.add('text-gray-400', 'border-transparent', 'hover:text-orange-600', 'hover:bg-orange-50/30');
+            tabAdmin.classList.remove('text-orange-700', 'border-orange-500', 'bg-orange-50/50');
         });
 
         tabAdmin.addEventListener('click', () => {
             panelAdmin.classList.remove('hidden');
             panelPublic.classList.add('hidden');
             
-            tabAdmin.className = "flex-1 py-4 text-sm font-semibold text-center text-orange-700 border-b-2 border-orange-500 bg-orange-50 transition-colors focus:outline-none";
-            tabPublic.className = "flex-1 py-4 text-sm font-semibold text-center text-gray-500 border-b-2 border-transparent hover:text-green-600 hover:bg-green-50 transition-colors focus:outline-none";
+            // Active Admin Tab
+            tabAdmin.classList.add('text-orange-700', 'border-orange-500', 'bg-orange-50/50');
+            tabAdmin.classList.remove('text-gray-400', 'border-transparent', 'hover:text-orange-600', 'hover:bg-orange-50/30');
+            
+            // Inactive Public Tab
+            tabPublic.classList.add('text-gray-400', 'border-transparent', 'hover:text-emerald-600', 'hover:bg-emerald-50/30');
+            tabPublic.classList.remove('text-emerald-700', 'border-emerald-500', 'bg-emerald-50/50');
         });
     }
 
@@ -166,6 +176,19 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    const forgotBtn = document.getElementById('btn-forgot-password');
+    if (forgotBtn) {
+        forgotBtn.addEventListener('click', async () => {
+            try {
+                const data = await forgotPassword();
+                // We use showConfirmModal just as a styled alert here
+                showConfirmModal(data.instructions || 'Please contact your administrator.', null);
+            } catch (err) {
+                showLoginError('Could not fetch recovery instructions.');
+            }
+        });
+    }
+
     function showLoginError(msg) {
         if (loginError) {
             loginError.textContent = msg;
@@ -175,19 +198,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- Logout Button (present on admin & viewer pages) ---
-    const logoutBtn = document.getElementById('btn-logout');
-    if (logoutBtn) {
-        logoutBtn.addEventListener('click', async function() {
-            try {
-                await logout();
-                // Clear browser history and redirect to login
-                window.location.replace('/login');
-            } catch (err) {
-                // Ignore errors, redirect anyway
-                window.location.replace('/login');
-            }
-        });
-    }
+    // Logout logic should be handled by specific pages to avoid conflicts
 });
 
 // --- Session Check Helper ---
