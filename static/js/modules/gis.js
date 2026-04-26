@@ -67,29 +67,29 @@ async function updateGeometryMetrics(geometry, options) {
 
 async function updateGeometryMetricsForAddRecord(geometry) {
     const geometryInput = document.getElementById('form-geometry');
-    
+
     // Set geometry IMMEDIATELY so form can save
     if (geometryInput) geometryInput.value = JSON.stringify(geometry);
-    
+
     // Now fetch area metrics
     try {
         const result = await calculateArea(geometry);
-        
+
         // API returns: { area: { area_ha, area_acres, ... }, perimeter: {...}, centroid: {...} }
         const areaData = result.area || result;
         const perimeterData = result.perimeter || {};
         const centroidData = result.centroid || {};
-        
+
         const areaInput = document.getElementById('form-area');
         const areaAuto = document.getElementById('area-auto');
         const areaEquivalents = document.getElementById('area-equivalents');
         const geometryMetrics = document.getElementById('geometry-metrics');
         const perimeterEl = document.getElementById('metric-perimeter');
         const centroidEl = document.getElementById('metric-centroid');
-        
+
         if (areaInput) areaInput.value = areaData.area_ha || '';
         if (areaAuto) areaAuto.textContent = `(Auto-calculated)`;
-        
+
         if (areaEquivalents) {
             areaEquivalents.classList.remove('hidden');
             const bigha = areaData.area_bigha_assam || (areaData.area_ha * 7.4752).toFixed(2);
@@ -112,7 +112,7 @@ async function updateGeometryMetricsForAddRecord(geometry) {
             drawStatus.innerHTML = `<strong>Parcel geometry captured.</strong> Area: ${areaData.area_ha} Ha. Ready to save.`;
             drawStatus.className = 'bg-green-50 border-l-4 border-green-500 rounded-r-lg p-3 text-sm text-green-800';
         }
-        
+
         // Trigger live valuation update in forms.js
         if (typeof updateLiveValuation === 'function') {
             updateLiveValuation();
@@ -128,7 +128,7 @@ function clearMetricsUI() {
     const areaAuto = document.getElementById('area-auto');
     const areaEquivalents = document.getElementById('area-equivalents');
     const geometryMetrics = document.getElementById('geometry-metrics');
-    
+
     if (areaInput) areaInput.value = '';
     if (areaAuto) areaAuto.textContent = '(Draw on map)';
     if (areaEquivalents) {
@@ -150,6 +150,6 @@ function clearGeometrySelection(clearAddRecordMap) {
     currentSketchLayer = null;
     const geomInput = document.getElementById('form-geometry');
     if (geomInput) geomInput.value = '';
-    
+
     clearMetricsUI();
 }
