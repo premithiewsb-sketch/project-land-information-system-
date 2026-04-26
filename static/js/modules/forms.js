@@ -263,6 +263,58 @@ function isMapAutofillEnabled() {
     return enabledEl ? enabledEl.checked : true;
 }
 
+function updateGpsBanner(locationData) {
+    const gpsBanner = document.getElementById('gps-detected-banner');
+    if (!gpsBanner) return;
+
+    if (!locationData) {
+        gpsBanner.classList.add('hidden');
+        return;
+    }
+
+    gpsBanner.classList.remove('hidden');
+    
+    if (locationData.loading) {
+        gpsBanner.innerHTML = `
+            <div class="flex items-center gap-2">
+                <svg class="w-4 h-4 text-green-600 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                <span class="text-xs font-semibold text-green-700">Detecting location from GPS coordinates...</span>
+            </div>`;
+        return;
+    }
+
+    if (locationData.state && locationData.district) {
+        const villageDisplay = locationData.village ? `${escapeHtml(locationData.village)}, ` : '';
+        gpsBanner.innerHTML = `
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-start gap-2">
+                    <svg class="w-4 h-4 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <div>
+                        <p class="text-xs font-bold text-green-800">GPS Detected Location</p>
+                        <p class="text-xs text-green-700 mt-0.5">
+                            <span class="font-semibold">${escapeHtml(locationData.state)}</span> &rsaquo;
+                            <span class="font-semibold">${escapeHtml(locationData.district)}</span> &rsaquo;
+                            ${escapeHtml(locationData.village || 'N/A')}
+                        </p>
+                    </div>
+                </div>
+                <button type="button" id="btn-sync-gps" class="flex-shrink-0 bg-green-600 hover:bg-green-700 text-white text-[10px] font-bold px-2 py-1 rounded transition-colors shadow-sm">
+                    USE THIS
+                </button>
+            </div>`;
+        
+        const syncBtn = document.getElementById('btn-sync-gps');
+        if (syncBtn) {
+            syncBtn.addEventListener('click', () => {
+                applyResolvedLocation(locationData, true);
+                showToast('Form updated with GPS location.', 'success');
+            });
+        }
+    } else {
+        gpsBanner.classList.add('hidden');
+    }
+}
+
 function shouldApplyLocationUpdate(nextLocation, forceUpdate) {
     const { stateEl, districtEl, villageEl } = getFormElements();
     if (!stateEl || !districtEl || !villageEl) return false;
@@ -277,13 +329,15 @@ function shouldApplyLocationUpdate(nextLocation, forceUpdate) {
         village: villageEl.value || ''
     };
 
-    const currentIsEmpty = !current.state && !current.district && !current.village;
+    const currentIsEmpty = !current.state && !current.district;
+    
+    // Loosened check: if state and district match previous auto, we can still update village
+    // OR if the new location is in a completely different state/district, we should probably update if it was auto-filled
     const currentIsPreviousAuto =
         current.state === (lastAutoLocation.state || '') &&
-        current.district === (lastAutoLocation.district || '') &&
-        current.village === (lastAutoLocation.village || '');
+        current.district === (lastAutoLocation.district || '');
 
-    const nextLooksUseful = nextLocation.state || nextLocation.district || nextLocation.village;
+    const nextLooksUseful = nextLocation.state || nextLocation.district;
     return !!nextLooksUseful && (currentIsEmpty || currentIsPreviousAuto);
 }
 
@@ -293,6 +347,15 @@ function applyResolvedLocation(locationData, forceUpdate) {
         district: locationData.district || '',
         village: locationData.village || ''
     };
+
+    // Update the GPS detected state for mismatch validation
+    if (nextLocation.state && nextLocation.district) {
+        lastGpsDetectedLocation = { ...nextLocation };
+        updateGpsBanner(nextLocation);
+    } else {
+        lastGpsDetectedLocation = { state: '', district: '', village: '' };
+        updateGpsBanner(null);
+    }
 
     if (!shouldApplyLocationUpdate(nextLocation, forceUpdate)) {
         updateAutofillStatus('Map location detected. Location fields kept as manually selected.', false);
@@ -308,7 +371,14 @@ function applyResolvedLocation(locationData, forceUpdate) {
 }
 
 function scheduleMapLocationLookup(lat, lng, forceUpdate) {
-    if (!isAdmin || !isMapAutofillEnabled()) return;
+    if (!isAdmin) return;
+    
+    // Stop tracker if manual override is enabled
+    if (isManualLocationOverrideEnabled()) {
+        updateGpsBanner(null);
+        return;
+    }
+    
     if (typeof lat !== 'number' || typeof lng !== 'number') return;
 
     const geocodeKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
@@ -319,6 +389,9 @@ function scheduleMapLocationLookup(lat, lng, forceUpdate) {
         clearTimeout(reverseGeocodeTimer);
     }
 
+    // Show loading state in GPS banner
+    updateGpsBanner({ loading: true });
+
     reverseGeocodeTimer = setTimeout(async function() {
         updateAutofillStatus('Detecting state and district from map...', false);
         try {
@@ -326,6 +399,7 @@ function scheduleMapLocationLookup(lat, lng, forceUpdate) {
             applyResolvedLocation(locationData, forceUpdate);
         } catch (err) {
             updateAutofillStatus(err.message || 'Map location detection failed.', true);
+            updateGpsBanner(null);
         }
     }, 650);
 }
@@ -621,6 +695,9 @@ function resetForm() {
         drawStatus.innerHTML = '<strong>Waiting for map drawing...</strong> Draw a parcel on the map to continue.';
         drawStatus.className = 'bg-blue-50 border-l-4 border-blue-500 rounded-r-lg p-3 text-sm text-blue-800';
     }
+
+    lastGpsDetectedLocation = { state: '', district: '', village: '' };
+    updateGpsBanner(null);
 
     switchFormTab('location');
 }
