@@ -263,6 +263,10 @@ def update_record(record_id):
             record["attributes"]["perimeter_m"] = calculate_perimeter(data["geometry"]).get("perimeter_m", 0)
 
     save_records(records)
+    
+    username = session.get("username", "admin")
+    _log_audit('update', username, record_id, {'ulpin': record.get('ulpin'), 'khasra_no': record.get('khasra_no')})
+    
     return jsonify({"success": True, "record": record})
 
 @records_bp.route("/api/records/<record_id>", methods=["DELETE"])
